@@ -1,0 +1,165 @@
+{
+  "version": "3.0",
+  "last_updated": "",
+  "last_updated_chapter": 0,
+  "entities": {
+    "characters": {
+      "_example": {
+        "name": "角色姓名",
+        "aliases": ["别名1"],
+        "identity": "身份定位（如：女主角/反派/导师）",
+        "age": "年龄或年龄段",
+        "appearance": "外貌特征描述",
+        "personality": ["性格特质1", "性格特质2"],
+        "goals": {"surface": "表层目标", "deep": "深层目标"},
+        "values": "核心价值观",
+        "behavior_logic": "压力下的反应模式",
+        "abilities": ["能力1"],
+        "weaknesses": ["弱点1"],
+        "status": "活跃/隐居/受伤/死亡",
+        "arc_stage": "弧光阶段（如：触发期/挣扎期/蜕变期）",
+        "last_seen_chapter": 0,
+        "dialogue_style": "对话风格描述",
+        "catchphrases": ["口头禅1"],
+        "snapshot": "当前状态快照（1-2句，每章更新。初始化时为角色起始状态描述）"
+      }
+    },
+    "locations": {
+      "_example": {
+        "name": "地点名称",
+        "description": "地点描述",
+        "significance": "地点在故事中的意义",
+        "current_state": "当前状态（如：繁荣/废墟/封锁）",
+        "connected_to": ["相关地点ID"]
+      }
+    },
+    "items": {
+      "_example": {
+        "name": "物品名称",
+        "description": "物品描述",
+        "abilities": ["物品能力/效果"],
+        "current_owner": "当前持有者ID",
+        "location": "当前所在位置",
+        "significance": "物品在故事中的意义"
+      }
+    },
+    "factions": {
+      "_example": {
+        "name": "势力名称",
+        "description": "势力描述",
+        "leader": "领袖角色ID",
+        "members": ["成员角色ID"],
+        "goals": "势力目标",
+        "resources": ["资源/优势"],
+        "relations": ["与其他势力的关系描述"]
+      }
+    },
+    "abilities": {
+      "_example": {
+        "name": "能力/功法名称",
+        "description": "能力描述",
+        "rank_system": "等级体系（如：初阶/中阶/高阶）",
+        "limitations": ["限制条件"],
+        "known_users": ["已知使用者角色ID"]
+      }
+    },
+    "events": {
+      "_example": {
+        "name": "事件名称",
+        "chapter": 0,
+        "description": "事件描述",
+        "entities_involved": ["相关实体ID"],
+        "consequences": "事件后果/影响",
+        "timeline_position": "时间线位置说明"
+      }
+    }
+  },
+  "relationships": [
+    {
+      "_example": true,
+      "entity_a": "角色ID",
+      "entity_b": "角色ID/势力ID",
+      "type": "师徒/敌对/恋人/隶属/盟友",
+      "description": "关系描述",
+      "evolution_log": [{"chapter": 0, "status": "初始关系状态"}]
+    }
+  ],
+  "timeline": [
+    {
+      "_example": true,
+      "chapter": 0,
+      "event": "事件描述",
+      "entities_involved": ["实体ID1", "实体ID2"],
+      "consequences": "该事件的后续影响"
+    }
+  ],
+  "foreshadowing": {
+    "planted": [
+      {
+        "_example": true,
+        "id": "foreshadow_001",
+        "name": "伏笔名称",
+        "planted_chapter": 0,
+        "description": "伏笔内容",
+        "expected_resolution": "预计回收章节/方式",
+        "status": "pending"
+      }
+    ],
+    "resolved": []
+  },
+  "style_profile": {
+    "source": "",
+    "vocabulary_preferences": [],
+    "sentence_complexity": "",
+    "pacing_pattern": "",
+    "signature_techniques": []
+  },
+  "_schema_notes": {
+    "characters": {
+      "_id_format": "char_NNN",
+      "_example_key": "character_id",
+      "_fields": ["name", "aliases", "identity", "age", "appearance", "personality", "goals", "values", "behavior_logic", "abilities", "weaknesses", "status", "arc_stage", "last_seen_chapter", "dialogue_style", "catchphrases", "snapshot"]
+    },
+    "locations": {
+      "_id_format": "loc_NNN",
+      "_example_key": "location_id",
+      "_fields": ["name", "description", "significance", "current_state", "connected_to"]
+    },
+    "items": {
+      "_id_format": "item_NNN",
+      "_example_key": "item_id",
+      "_fields": ["name", "description", "abilities", "current_owner", "location", "significance"]
+    },
+    "factions": {
+      "_id_format": "fac_NNN",
+      "_example_key": "faction_id",
+      "_fields": ["name", "description", "leader", "members", "goals", "resources", "relations"]
+    },
+    "abilities": {
+      "_id_format": "ability_NNN",
+      "_example_key": "ability_id",
+      "_fields": ["name", "description", "rank_system", "limitations", "known_users"]
+    },
+    "events": {
+      "_id_format": "event_NNN",
+      "_example_key": "event_id",
+      "_fields": ["name", "chapter", "description", "entities_involved", "consequences", "timeline_position"]
+    },
+    "relationships": {
+      "_note": "Array of {entity_a, entity_b, type, description, evolution_log}"
+    },
+    "timeline": {
+      "_note": "Array of {chapter, event, entities_involved, consequences}"
+    }
+  },
+  "power_system": {
+    "current_stage": "未设定",
+    "next_stage": "未设定",
+    "core_mechanic": "力量体系说明"
+  },
+  "cheat_system": {
+    "name": "金手指名称",
+    "current_status": "当前解锁状态/等级",
+    "cooldown_or_condition": "触发条件或冷却限制"
+  }
+}

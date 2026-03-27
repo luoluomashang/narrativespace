@@ -1,0 +1,252 @@
+# 写后自查规则（最小可用版，偏番茄节奏）
+# 说明：
+# 1) 该文件会在章节写完后由 orchestrator 读取。
+# 2) 用户可以直接修改、增删规则；下一章执行时自动生效。
+# 3) severity=halt 命中时打回重写；severity=warn 仅告警。
+# 4) 建议优先改 enabled / severity / 阈值字段，不要删除 rule_id。
+# 5) 如需收紧审核：把关键 warn 规则改为 halt；如需放宽则反向调整。
+
+rules:
+  # ------------------------------
+  # A. 现有核心门槛（保留）
+  # ------------------------------
+  - rule_id: hook_last_200
+    enabled: true
+    severity: halt
+    description: 章末 200 字必须出现有效钩子（危机/反转/奖励前置/系统激活/新威胁到场）。
+    check:
+      type: keyword_any
+      scope: last_200_chars
+      keywords:
+        - 危机
+        - 异变
+        - 反转
+        - 刚要
+        - 下一秒
+        # 以下为系统文/悬疑文钩子扩展词（自动化检测时可启用）
+        - 开始
+        - 警告
+        - 任务
+        - 追踪
+        - 来了
+        - 推开
+        - 威胁
+        - 警报
+
+  - rule_id: no_recap_opening
+    enabled: true
+    severity: halt
+    description: 开篇 300 字禁止大段复述上一章剧情。
+    check:
+      type: keyword_ratio_limit
+      scope: first_300_chars
+      keywords:
+        - 上一章
+        - 回想
+        - 事情要从
+      max_ratio: 0.05
+
+  - rule_id: opening_conflict_entry
+    enabled: true
+    severity: warn
+    description: 开篇 300 字建议尽快进入动作或冲突，避免静态铺垫。
+    check:
+      type: keyword_any
+      scope: first_300_chars
+      keywords:
+        - 冲上
+        - 砸
+        - 追
+        - 拦住
+        - 开打
+
+  - rule_id: dialogue_balance
+    enabled: true
+    severity: warn
+    description: 对话占比建议处于 30%-75% 区间，偏离时告警。
+    check:
+      type: range
+      metric: dialogue_ratio
+      min: 0.30
+      max: 0.75
+
+  - rule_id: no_hc_degrade
+    enabled: true
+    severity: halt
+    description: 出现 HC2/HC3/HC4 任一触发信号时必须打回重写。
+    check:
+      type: hc_fail_any
+      hc_codes:
+        - HC2
+        - HC3
+        - HC4
+
+  # ------------------------------
+  # B. 补充规则（番茄运营向）
+  # ------------------------------
+  - rule_id: pace_minor_twist
+    enabled: true
+    severity: warn
+    description: 每 500 字窗口至少出现一次小转折信号，避免连续平铺。
+    check:
+      type: window_twist_density
+      window_size: 500
+      keywords:
+        - 突然
+        - 竟然
+        - 原来
+        - 下一秒
+        - 猛然
+        - 反转
+        - 不对劲
+      min_hits_per_window: 1
+
+  - rule_id: goldfinger_by_chapter2
+    enabled: true
+    severity: halt
+    description: 第二章必须出现明确金手指或核心反转线索；第一章已出现可视为通过。
+    check:
+      type: keyword_any
+      scope: chapter:2
+      keywords:
+        - 系统
+        - 签到
+        - 觉醒
+        - 重生
+        - 绑定
+        - 金手指
+        - 隐藏任务
+        - 开启
+
+  - rule_id: first_climax_by_chapter3
+    enabled: true
+    severity: halt
+    description: 第三章必须出现至少一次明确爽点兑现或小高潮动作。
+    check:
+      type: keyword_any
+      scope: chapter:3
+      keywords:
+        - 碾压
+        - 打脸
+        - 跪下
+        - 震惊
+        - 收获
+        - 奖励
+        - 突破
+        - 秒杀
+      min_hits: 2
+
+  - rule_id: no_coward_mc
+    enabled: true
+    severity: halt
+    description: 主角面对压迫时禁止连续出现窝囊退让表达。
+    check:
+      type: keyword_ratio_limit
+      scope: full_chapter
+      keywords:
+        - 忍了
+        - 算了
+        - 多一事不如少一事
+        - 不想惹事
+        - 退一步
+      max_ratio: 0.01
+
+  - rule_id: no_whitewash_villain
+    enabled: true
+    severity: halt
+    description: 前三章禁止对前期压迫型反派进行洗白叙事。
+    check:
+      type: keyword_any
+      scope: first_3_chapters
+      keywords:
+        - 苦衷
+        - 其实
+        - 也是被逼
+        - 原来是为了
+      threshold: any
+
+  - rule_id: chapter_length_control
+    enabled: true
+    severity: halt
+    description: 番茄单章超过 3500 字时强制打回要求拆分；低于 2000 字时警告。
+    check:
+      type: range
+      metric: chapter_char_count
+      min: 2000
+      max: 3500
+      min_severity: warn
+      max_severity: halt
+      # min 触发 warn（字数不足），max 触发 halt（字数超标必须拆章）
+
+  - rule_id: chapter_opening_hook
+    enabled: true
+    severity: warn
+    description: 开篇 100 字建议承接上一章悬念或直接切入新冲突。
+    check:
+      type: keyword_any
+      scope: first_100_chars
+      keywords:
+        - 冲进
+        - 拦住
+        - 开打
+        - 异变
+        - 反转
+        - 危机
+
+  - rule_id: no_repetitive_description
+    enabled: true
+    severity: halt
+    description: 同一章内禁止对同一件事、同一状态、同一场景进行重复或高度相似的描述。
+    check:
+      type: semantic_repeat_detect
+      scope: full_chapter
+      targets:
+        - 人物外貌（同一角色的外貌特征不得描述两次及以上）
+        - 环境特征（同一地点的氛围、天气、布景不得反复交代）
+        - 情绪状态（主角对同一事件的情绪反应不得在不同段落中重复渲染）
+        - 能力/金手指原理（已解释的原理不得在同章再次解释）
+        - 事件结果（已明确交代的人物处境或事件后果不得重复确认）
+      max_similar_blocks: 1
+      # 阈值说明：同一语义单元在章节内出现超过 1 次即视为违规
+      # 如需放宽（例如刻意复沓的文学手法），可将 max_similar_blocks 改为 2
+
+  - rule_id: chapter_title_quality
+    enabled: true
+    severity: warn
+    description: 章节标题建议采用剧透型/悬念型/戏剧冲突型之一，禁止平淡流水账式标题。
+    check:
+      type: keyword_none
+      scope: chapter_title
+      banned_patterns:
+        - 第.*章$
+        - 日常
+        - 普通的一天
+        - 继续
+      suggestion: "建议格式：【打脸型】'证明给所有人看'；【悬念型】'她究竟知道多少'；【剧透爽点型】'刚才那个，是我哥'"
+
+  - rule_id: audio_reading_compat
+    enabled: true
+    severity: warn
+    description: 听书兼容性检查：避免大量依赖视觉符号或格式感的段落，保证去除格式符号后文本仍然可听。
+    check:
+      type: keyword_ratio_limit
+      scope: full_chapter
+      keywords:
+        - "【"
+        - "】"
+        - "---"
+        - "▶"
+        - "★"
+        - "⚠"
+      max_ratio: 0.08
+      # 系统文符号占全章比例不超过 8%，超出时提示是否需要听书模式适配
+
+  - rule_id: cliffhanger_variety
+    enabled: false
+    severity: warn
+    description: 连续两章章末钩子类型不建议完全同型；默认关闭，待实现后启用。
+    check:
+      type: pattern_sequence
+      scope: last_200_chars
+      history_length: 2
+      banned_same_pattern: true

@@ -1,0 +1,86 @@
+# 层级记忆存档策略
+# 叙事空间创作系统 v3.0
+# 
+# 当project memory (memory.md) 超过字数限制时，自动将符合条件的内容
+# 转移到深度归档区(archive_memory.json)，仅在特定场景触发时调取
+
+strategy:
+  memory_limit: 1500  # memory.md 的字数硬限（超过此值触发存档评估）
+  
+  archive_conditions:
+    - id: "condition_1"
+      name: "已完结卷次的历史记录"
+      description: "前N-2卷的关键伏笔、反派设定、世界观细节可归档"
+      trigger_event: "新一卷规划开启时"
+      preservation_duration: "永久"  # 不自动删除
+      recall_trigger: "当前卷涉及跨卷伏笔回收/反派复出时"
+      
+    - id: "condition_2"
+      name: "已正式回收的伏笔"
+      description: "knowledge_base.json中status=resolved的伏笔可转档"
+      trigger_event: "每章写作完成后检查"
+      preservation_duration: "3个月（可选延期）"
+      recall_trigger: "用户明确查询"
+      
+    - id: "condition_3"
+      name: "已死亡角色的传记"
+      description: "status=死亡 的角色其完整传记可归档"
+      trigger_event: "该角色判定死亡1章后"
+      preservation_duration: "永久"
+      recall_trigger: "若计划复活该角色时"
+      
+    - id: "condition_4"
+      name: "历史版本的规划文案"
+      description: "被新版本覆盖的大纲/场景规划可备份存档"
+      trigger_event: "新规划版本写入时"
+      preservation_duration: "一卷"  # 仅保留当前卷的历史
+      recall_trigger: "需要回溯早期设定时"
+
+archive_structure:
+  archive_memory:
+    version: "1.0"
+    entries:
+      - id: "entry_id"
+        category: "long_line|dead_character|resolved_foreshadow|historical_outline"
+        source_volume: 1           # 来自哪一卷
+        tag: "伏笔主题"
+        content: "归档内容（可长）"
+        archived_at: "章节号"
+        recall_probability: "low|medium|high"  # 可用于排序
+        keywords: ["关键词1", "关键词2"]  # 用于条件检索
+        
+  metadata:
+    last_archived_chapter: 0
+    total_entries: 0
+    volume_snapshots: {}  # {卷号: 当时的必要快照}
+
+archive_triggers:
+  # 主动触发方式（orchestrator 在 write/summarize 阶段检查）
+  - event: "end_chapter"
+    threshold: "memory.md > 1500字"
+    action: "运行archive_long_lines.py，标记过期条目"
+    
+  - event: "volume_complete"
+    threshold: "卷末"
+    action: "自动创建volume_snapshot，归档旧卷非关键信息"
+
+recall_modes:
+  # 提供给模型的调用方式
+  - trigger: "step_9 场景规划遇到Layer-2核心冲突"
+    search: "archive_memory 中recall_probability=high的条目"
+    limit: "返回top3相关条目"
+    
+  - trigger: "step_10 写作时涉及跨卷角色"
+    search: "archive_memory 中source_volume!=当前卷 的角色传记"
+    limit: "返回完整角色档案"
+    
+  - trigger: "step_7 知识库初始化新卷时"
+    search: "archive_memory 中长线伏笔"
+    limit: "返回全部待回收伏笔列表"
+
+notes: |
+  实现细节：
+  1. memory.md 仍为高频更新的临时区，主要记录当前卷的实时笔记、用户反馈、待办项
+  2. archive_memory.json 为低频访问的深度知识，采用 B树 索引优化查询性能
+  3. 计划使用 sequential-thinking 或 websearch MCP 来在自然语言层面辅助检索
+  4. orchestrator 在 write 阶段会自动检查是否需要触发recall_modes中的任何模式
