@@ -1,0 +1,68 @@
+# genre_tags.yaml - 附件A：小说类型参考列表 (番茄爆款特化版)
+# 用途：设定小说类型时的参考列表。精准匹配番茄小说网的推荐算法和读者搜索习惯。
+
+# 第一部分：主要题材与宏观分类 (番茄热门大类)
+macro_genres:
+  - tag: 脑洞/十万个为什么
+    english: High-concept/Brain Hole
+    description: 设定极其新颖反常，开局抛出巨大悬念或颠覆性设定的故事（番茄最大流量池）。
+  - tag: 都市
+    english: Urban
+    description: 背景在现代都市，常融合神豪、校花、战神、鉴宝等强爽感元素。
+  - tag: 玄幻/高武
+    english: Xuanhuan/High Martial Arts
+    description: 节奏极快的修炼升级故事，通常伴随极为夸张的战斗表现力。
+  - tag: 规则怪谈/悬疑
+    english: Rule-based Horror
+    description: 主角在充满诡异规则的副本中，利用提示或金手指卡bug求生的故事。
+  - tag: 历史/架空
+    english: Alternate History
+    description: 带着现代科技或物资回到古代，搞基建、造反或权谋降维打击的故事。
+
+# 第二部分：番茄核心情节与流派 (起量密码)
+core_plots:
+  - tag: 系统文/签到流
+    english: System/Sign-in Novel
+    description: 开局绑定系统，只需简单操作（如每天签到、呼吸）就能获得顶级奖励。
+  - tag: 无敌流
+    english: Invincible Flow
+    description: 主角开局即满级或拥有绝对碾压的实力，全程一路平推，没有憋屈情节。
+  - tag: 苟道流/长生流
+    english: Laying low/Immortality
+    description: 主角拥有无限寿命或极高天赋，但性格极度稳健，绝不轻易冒险，靠熬死敌人获胜。
+  - tag: 模拟器
+    english: Simulator
+    description: 主角拥有人生模拟器系统，可以提前试错，在现实中规避风险并提取极品奖励。
+  - tag: 截胡/多子多福
+    english: Intercepting/Family Expansion
+    description: 抢占原世界气运之子的机缘，或通过建立庞大家族势力来获取系统反馈。
+
+# 第三部分：热门设定与"梗"分类 (情绪驱动力)
+popular_tropes:
+  - tag: 极致爽文/无毒点
+    english: Pure Satisfying Novel
+    description: 绝对不虐主，反派智商在线但被主角光环无情碾压，情绪反馈极快。
+  - tag: 曝光流/日记流
+    english: Exposure Novel
+    description: 主角的隐藏大佬身份、前世记忆或秘密日记被全网直播曝光，引发全世界震惊。
+  - tag: 杀伐果断/不圣母
+    english: Decisive/Ruthless
+    description: 主角行事极其果断，对待敌人毫不留情，斩草除根，绝不因怜悯而留下隐患。
+  - tag: 反套路
+    english: Anti-cliche
+    description: 故意打破传统网文的常见套路，用出人意料、甚至沙雕的方式解决问题。
+  - tag: 薅羊毛/卡Bug
+    english: Exploiting Loopholes
+    description: 主角利用系统漏洞或规则盲区，疯狂获取利益，让反派或系统崩溃。
+
+# 第四部分：背景与职业分类
+settings_and_professions:
+  - tag: 诡异复苏
+    english: Weird Revival
+    description: 现实世界突然降临各种不可名状的恐怖，主角靠金手指成为唯一真神。
+  - tag: 鉴宝/神豪
+    english: Appraisal/Ultra-rich
+    description: 拥有透视或寻宝眼，在古玩街捡漏，或绑定神豪系统疯狂撒币打脸拜金女。
+  - tag: 四合院/年代文
+    english: Period Drama
+    description: 穿越到过去（如六七十年代的四合院），与奇葩邻居斗智斗勇，闷声发大财。
