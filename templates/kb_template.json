@@ -18,8 +18,17 @@
         "weaknesses": ["弱点1"],
         "status": "活跃/隐居/受伤/死亡",
         "arc_stage": "弧光阶段（如：触发期/挣扎期/蜕变期）",
+        "arc_history": [],
+        "_arc_history_note": "已完结弧光记录，格式：[{arc_id, arc_name, start_chapter, end_chapter, final_stage}]",
         "last_seen_chapter": 0,
         "dialogue_style": "对话风格描述",
+        "voice_fingerprint": {
+          "under_pressure": "高压/被逼时的句法特征（如：句子变短，主语省略）",
+          "lying_or_hiding": "撒谎或隐瞒时的特征（如：多用'其实'开头，补充多余细节）",
+          "deflect": "回避直接回答的方式（如：用反问岔开话题）",
+          "emotional_peak": "情绪极值时的说话方式（如：停止说话，或说不完整的句子）",
+          "default_length": "日常台词长度倾向（短/中/长）"
+        },
         "catchphrases": ["口头禅1"],
         "snapshot": "当前状态快照（1-2句，每章更新。初始化时为角色起始状态描述）"
       }
@@ -102,9 +111,11 @@
         "planted_chapter": 0,
         "description": "伏笔内容",
         "expected_resolution": "预计回收章节/方式",
-        "status": "pending"
+        "status": "pending",
+        "heat_level": "hot"
       }
     ],
+    "_heat_level_note": "hot=本卷内回收(≤3章), warm=3卷内回收, cold=全书70-80%进度前回收",
     "resolved": []
   },
   "style_profile": {
@@ -118,7 +129,7 @@
     "characters": {
       "_id_format": "char_NNN",
       "_example_key": "character_id",
-      "_fields": ["name", "aliases", "identity", "age", "appearance", "personality", "goals", "values", "behavior_logic", "abilities", "weaknesses", "status", "arc_stage", "last_seen_chapter", "dialogue_style", "catchphrases", "snapshot"]
+      "_fields": ["name", "aliases", "identity", "age", "appearance", "personality", "goals", "values", "behavior_logic", "abilities", "weaknesses", "status", "arc_stage", "arc_history", "last_seen_chapter", "dialogue_style", "voice_fingerprint", "catchphrases", "snapshot"]
     },
     "locations": {
       "_id_format": "loc_NNN",
@@ -161,5 +172,40 @@
     "name": "金手指名称",
     "current_status": "当前解锁状态/等级",
     "cooldown_or_condition": "触发条件或冷却限制"
+  },
+  "world_events": {
+    "_notes": {
+      "purpose": "世界线暗流（Sandbox Backend）— 记录主角不在场时各势力/反派的离线行动与世界状态变化。由 KB 引擎在每个 cycle 结束时自动推演更新。",
+      "update_trigger": "每次 cycle 完成后，KB 管理引擎根据各势力的 behavior_logic 推演其离线行为，写入此处。"
+    },
+    "faction_private_state": [
+      {
+        "_example": true,
+        "faction_id": "势力或角色 ID（对应 entities.factions 或 entities.characters）",
+        "updated_at_chapter": 0,
+        "offline_actions": [
+          {
+            "action": "离线行动描述（主角不在场时进行的活动）",
+            "consequence": "行动后果（资源变化/实力变化/情报获取/阴谋推进）",
+            "known_to_protagonist": false,
+            "known_to_reader": true,
+            "_note": "known_to_protagonist=false 时，此信息形成信息差，可在后续章节揭露为爽点"
+          }
+        ],
+        "current_hidden_plan": "当前正在秘密推进的计划（主角至今不知晓）",
+        "power_change_since_chapter": 0,
+        "power_change_description": "实力/资源变化描述（例：吞并XX势力后，战力提升约20%）"
+      }
+    ],
+    "world_timeline": [
+      {
+        "_example": true,
+        "chapter": 0,
+        "event": "世界时间线事件描述（独立于主角主视角）",
+        "entities_involved": ["实体ID1", "实体ID2"],
+        "protagonist_awareness": "unknown",
+        "_note": "protagonist_awareness 可选值：unknown / partial / known"
+      }
+    ]
   }
 }

@@ -14,9 +14,26 @@
 
 | 配置文件 | 路径 | 用途 |
 |----------|------|------|
-| 六大创作法则 | `.xushikj/config/methodology.yaml` | 作为对标作品的评估框架 |
+| 八大创作法则 | `.xushikj/config/methodology.yaml` | 作为对标作品的评估框架 |
 
-读取 `.xushikj/config/methodology.yaml` 中的六大法则（极限铺垫原则、期待感管理系统、第三法则、第四法则、第五法则、数据化质量评估），将其作为分析对标作品时的评估维度。
+读取 `.xushikj/config/methodology.yaml` 中的八大法则，将其作为分析对标作品时的评估维度。
+
+## ⚡ 八大商业化法则内嵌区（永驻上下文，methodology.yaml 读取失败时的兜底保障）
+
+> 来源：`.xushikj/config/methodology.yaml`。以下为核心摘要，外部文件是权威来源，本区为兜底备用。文件读取成功时以文件内容为准，读取失败时以本区为准。
+
+| 法则名称 | 核心概念 | 对标作品分析维度 |
+|---------|---------|----------------|
+| **law_1 极限铺垫原则** | 四层困境同时压制；绝境后翻盘 | 分析：铺垫层数、翻盘落差是否充足 |
+| **law_2 期待感管理系统** | 信息差分层释放；九连环钩子 | 分析：提问密度、伏笔布局与兑现节奏 |
+| **law_3 连锁震惊反应** | 三层震惊链（执行者→亲友→权威） | 分析：爽点有无观众反应链，反应有无递进 |
+| **law_4 角色基因锚定** | 道具级细节定义角色；双轨弧光 | 分析：主角记忆点道具、信仰底线触碰时的行为模式 |
+| **law_5 核心套路库** | 时间锁/空间锁；反差设计 | 分析：常用冲突结构类型与反差组合 |
+| **law_6 数据化评估** | 爽感密度；章末钩子强度 | 分析：爽点间隔、章末悬念类型、节奏密度 |
+| **law_7 高智商压迫** | 反派逻辑严密；信息差陷阱 | 分析：反派是否智商在线，困局是否来自规则压制而非降智 |
+| **law_8 降维打击** | 主角出手打破常规认知 | 分析：翻盘方式是否超出预期，信仰崩塌落差是否足够 |
+
+---
 
 ## 输入
 
@@ -85,12 +102,22 @@
 
 **第一层：逐章特征卡（chapter_style_card）**
 
-对每章三个窗口提炼：
-- `rhythm`：节奏评级（快/中/慢）及切换规律描述
-- `avg_sentence_len`：平均句长估算（字数）
-- `dialogue_ratio`：对话占比（%）
-- `hook_pattern`：章末钩子句型（疑问/行动/反转/破碎展示）
-- `transition_words`：高频转折词列表
+对每章三个窗口提炼，每张特征卡必须严格按以下 JSON schema 输出：
+
+```json
+{
+  "chapter_number": 1,
+  "rhythm": "快|中|慢（附切换规律描述，如：开篇中速→高潮快节奏→结尾中速收拢）",
+  "avg_sentence_len": 28,
+  "dialogue_ratio": 35,
+  "hook_pattern": "疑问|行动|反转|破碎展示（章末钩子句型）",
+  "transition_words": ["于是", "然而", "此时"],
+  "dominant_pov_technique": "纯感官锚点|内心独白|行动前置描写",
+  "emotional_peak_position": "前1/3|中段|后1/3（主要爽感或情绪高点所在位置）"
+}
+```
+
+每章输出一张特征卡，并汇总到 `state.json → benchmark_state.chapter_style_cards` 数组。
 
 **第二层：全局聚合**
 
@@ -112,13 +139,17 @@ low    → 在 40% 以下章节中出现，仅供参考
 
 ## 逆向工程模式（可选，需询问）
 
-> **默认关闭。** 在进入常规分析流程之前，必须主动向用户询问：
+> **v8.0 变更：默认推荐开启。** 在进入常规分析流程之前，必须主动向用户询问：
 >
-> 是否需要启用**逆向工程模式**（精准克隆作者语感，而非仅分析套路）？
-> - **是**：请提供一段您认为最能代表该作者语感的文本（≥ 500 字）
+> 是否需要启用**逆向工程模式**（精准克隆作者语感，而非仅分析套路）？\
+> 💡 **推荐启用** — 行文DNA提取可让后续创作更接近人类写手风格。
+> - **是（推荐）**：请提供一段您认为最能代表该作者语感的文本（≥ 500 字）
 > - **否**：直接进入常规分析流程
 >
-> 用户确认后方可执行。**默认回答为否**，用户不回答或未提供文本则直接跳过。
+> 用户确认后方可执行。
+>
+> ⛔ **询问动作不可省略**：无论用户是否主动提及，进入分析流程前必须先问这个问题，不得自行判断并跳过。
+> **v8.0 默认回答为是**：用户明确回答"否"方可跳过。沉默/未回复视为选择"是"。
 
 当用户的需求是"精准克隆某位作者的语感"而非"分析作品套路"时，进入逆向工程模式：
 
@@ -137,9 +168,168 @@ low    → 在 40% 以下章节中出现，仅供参考
 
 **完成后**：继续执行下方的常规分析流程（若用户还希望提取套路，可继续；若只需要克隆 Prompt，可在此收尾）。
 
+## 行文DNA采集流程（v8.0 新增，逆向工程模式的进阶版）
+
+> **触发条件**：用户提供了 **2 部以上参考作品文本**（每部 ≥ 500 字），且逆向工程模式已开启。
+> 仅 1 部作品时，走标准逆向工程流程；2+ 部作品时，自动进入 DNA 联合提取。
+
+### DNA 联合提取步骤
+
+**Step DNA-1：逐作品特征提取**
+
+对每部作品独立执行特征分析，输出单作品特征卡：
+
+```yaml
+work_name: "作品名"
+sentence_rhythm:
+  avg_sentence_length: 22
+  short_long_ratio: "3:2"
+  rhythm_pattern: "短-短-长-短（三短一长为主节奏）"
+vocabulary:
+  high_freq_words: ["XX", "XX", ...]
+  avoided_words: ["XX", "XX", ...]
+  signature_collocations: ["XX+XX", ...]
+dialogue:
+  avg_turn_length: 18
+  turn_rhythm: "快问快答为主，关键处一长一短"
+  density_per_1000: 45
+description:
+  sensory_per_1000: 8
+  action_verb_ratio: 0.35
+  non_visual_ratio: 0.4
+transition_patterns:
+  hard_cut_ratio: 0.6
+  soft_transition_ratio: 0.3
+  montage_ratio: 0.1
+paragraph:
+  avg_length: 3.5
+  opening_pattern: "动作前置"
+  closing_pattern: "悬念留白"
+emotion:
+  curve_template: "低开→渐升→爆发→缓落"
+  peak_position: "后1/3"
+```
+
+**Step DNA-2：横向共性提取**
+
+将所有单作品特征卡横向对比，提取共性DNA：
+- **共性规则**：在 70%+ 作品中一致出现的特征 → 标记 `confidence: high`，写入 DNA
+- **多数规则**：在 50-69% 作品中出现 → 标记 `confidence: medium`，写入 DNA
+- **个性特征**：仅在 1 部作品中出现 → 排除，不写入 DNA（避免个别作品的特异性）
+- **冲突处理**：若两部作品在某维度互相矛盾，取中间值或标注为 `contested`
+
+**Step DNA-3：生成行文DNA档案**
+
+输出完整的 `writing_dna_profile.yaml`，存储路径：`.xushikj/benchmark/writing_dna_profile.yaml`
+
+档案包含以下基因段：
+
+```yaml
+# 行文DNA档案 — {project_name}
+# 采集来源：{作品列表}
+# 采集日期：{date}
+
+dna_version: "1.0"
+source_works: ["作品A", "作品B", "作品C"]
+
+sentence_rhythm_pattern:
+  confidence: high
+  avg_sentence_length: {统计值}
+  short_long_alternation: "{规律描述}"
+  forbidden_rhythm: "{禁止的节奏模式}"
+
+vocabulary_fingerprint:
+  confidence: high
+  preferred_words: [...]
+  forbidden_words: [...]
+  signature_collocations: [...]
+
+emotion_curve_template:
+  confidence: medium
+  default_curve: "{描述}"
+  peak_position: "{位置}"
+
+dialogue_dna:
+  confidence: high
+  avg_turn_length: {统计值}
+  max_consecutive_turns: {值}
+  density_per_1000_words: {值}
+
+description_density:
+  confidence: high
+  sensory_words_per_1000: {值}
+  non_visual_ratio: {值}
+  action_verb_ratio: {值}
+
+transition_patterns:
+  confidence: medium
+  hard_cut_ratio: {值}
+  soft_transition_ratio: {值}
+
+paragraph_structure:
+  confidence: high
+  avg_paragraph_lines: {值}
+  opening_pattern: "{模式}"
+  closing_pattern: "{模式}"
+
+benchmark_paragraphs:
+  - source: "作品A 第X章"
+    text: "{200字标杆段落}"
+    highlights: "此段体现了XXX基因"
+  - source: "作品B 第Y章"
+    text: "{200字标杆段落}"
+    highlights: "此段体现了XXX基因"
+  - source: "作品C 第Z章"
+    text: "{200字标杆段落}"
+    highlights: "此段体现了XXX基因"
+```
+
+**Step DNA-4：自动转换为可执行模块**
+
+将 DNA 档案转换为 `config/style_modules/dna_human_{project_name}.yaml`：
+
+```yaml
+# 行文DNA可执行模块 — {project_name}
+# 自动生成自 writing_dna_profile.yaml
+module_type: dna_human
+priority: supreme  # 高于 clone_* 和所有内置模块
+
+do:
+  - "句式节奏：{具体指令}"
+  - "词汇选取：{具体指令}"
+  - "对话密度：{具体指令}"
+  - "感官描写：{具体指令}"
+  - "段落结构：{具体指令}"
+
+dont:
+  - "禁止：{具体禁令}"
+  - "避免：{具体禁令}"
+
+few_shot_anchors:
+  - "{标杆段落1}"
+  - "{标杆段落2}"
+  - "{标杆段落3}"
+```
+
+更新 `style_modules/index.yaml`，将 DNA 模块注册为可用选项。
+
+> ✅ **DNA 采集检查点（强制）**：必须输出 ① DNA 档案全文 ② 可执行模块全文 ③ 各基因段置信度汇总表。未完整输出三项则视为 DNA 采集未完成。
+
 ## 分析流程
 
-按以下四阶段顺序执行。每阶段完成后输出阶段小结，全部完成后整合为完整报告。
+按以下四阶段顺序执行。每阶段完成后输出阶段小结并等待用户确认，全部完成后整合为完整报告。
+
+### 分析阶段确认规则（强制）
+
+每个阶段分析结束后，**必须**输出以下格式的确认门，等待用户明确指令后才能进入下一阶段：
+
+```
+⛔ 阶段{N}确认门 ——「{阶段名}」分析已完成
+→ [继续下一阶段] | [修改：xxx]
+（未收到明确继续指令前，禁止进入下一阶段）
+```
+
+"继续"、"好的"、"可以"视为确认；沉默或仅提出问题不视为确认，需继续等待。
 
 ### 阶段一：文风学习
 
@@ -164,7 +354,7 @@ low    → 在 40% 以下章节中出现，仅供参考
 
 ### 阶段三：情节规划模式提取
 
-用 `methodology.yaml` 的六大法则作为分析框架，评估对标作品的情节设计：
+用 `methodology.yaml` 的八大法则作为分析框架，评估对标作品的情节设计：
 
 | 法则 | 分析维度 |
 |------|----------|
@@ -174,6 +364,8 @@ low    → 在 40% 以下章节中出现，仅供参考
 | 第四法则（角色设计） | 角色行为逻辑的一致性和深度 |
 | 第五法则（钩子系统） | 章末悬念类型、频率和留存效果 |
 | 第六法则（质量评估） | 文本质感的八维度表现 |
+| 第七法则（高智商压迫） | 反派布局的逻辑严密度、规则杀的使用频率 |
+| 第八法则（降维打击） | 主角出手对常规认知的打破程度、信仰崩塌深度 |
 
 额外提取：
 - **开篇模式**：困境切入/悬念切入/冲突切入
@@ -234,7 +426,7 @@ low    → 在 40% 以下章节中出现，仅供参考
 - 社会结构：{概述}
 - 核心规则：{概述}
 
-## 三、情节设计模式（六大法则评估）
+## 三、情节设计模式（八大法则评估）
 
 ### 3.1 法则应用评分
 | 法则 | 表现评分(1-10) | 关键特征 |
@@ -245,6 +437,8 @@ low    → 在 40% 以下章节中出现，仅供参考
 | 角色深度 | | |
 | 钩子系统 | | |
 | 文本质感 | | |
+| 高智商压迫 | | |
+| 降维打击 | | |
 
 ### 3.2 情节套路提取
 - 开篇模式：{描述}
@@ -315,10 +509,20 @@ benchmark_binding:
 5. **保存场景切片**：将阶段五提取的切片写入 `.xushikj/benchmark/style_snippets/`，按 `{scene_type}_{序号}.md` 命名
 6. **保存克隆 Prompt**（仅逆向工程模式）：将风格克隆 Prompt 写入 `.xushikj/config/style_modules/clone_{project_name}.yaml`，并更新 `style_modules/index.yaml`
 
+## 修改过程重锚规则
+
+当用户在对话中使用以下关键词时：**修改**、**改**、**不对**、**重新**、**再来**、**换一下**、**有问题**，必须在回复**首行**输出状态头：
+
+```
+[📌 对标引擎 | 阶段{N} | sample_scope: {scope} | 确认门：激活]
+```
+
+此头行帮助在长对话和上下文压力下维持对当前分析阶段和确认要求的记忆。不得省略，不得延后输出。
+
 ## 注意事项
 
 - 风格学习的结果影响后续**所有步骤**的输出风格，是全局性的
 - 若对标作品用词习惯与 `content_limits.yaml` 冲突，**以对标风格为优先**（cl_03 例外许可）
-- 每个阶段完成后先输出小结供用户审阅，而非全部做完才展示
+- 每个阶段完成后输出阶段小结并等待确认（见"分析阶段确认规则"），不得连续自动输出多个阶段
 - 如果用户提供了文本片段，优先基于实际文本分析，而非仅凭作品名推断
 - 本步骤为可选步骤，用户可跳过直接进入步骤 1

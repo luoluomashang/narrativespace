@@ -1,0 +1,65 @@
+{
+  "_comment": "叙事空间创作系统 v8.2 — 卷级时间线模板",
+  "_schema_version": "8.2",
+  "_usage": "复制此文件到 .xushikj/timelines/volume_N_timeline.json，填写各字段",
+
+  "volume": 1,
+  "title": "第一卷：卷标题",
+  "chapter_range": {"start": 1, "end": 60},
+
+  "north_star_alignment": "本卷的北极星目标（与 north_star.md 对齐）",
+
+  "milestones": [
+    {
+      "id": "ms_v1_01",
+      "type": "power_up",
+      "description": "主角完成首次金手指觉醒，确立成长方向",
+      "promised_at_chapter": 5,
+      "fulfilled": false,
+      "fulfilled_at_chapter": null
+    },
+    {
+      "id": "ms_v1_02",
+      "type": "conflict_peak",
+      "description": "与本卷主要反派正面对抗并取得阶段性胜利",
+      "promised_at_chapter": 45,
+      "fulfilled": false,
+      "fulfilled_at_chapter": null
+    },
+    {
+      "id": "ms_v1_03",
+      "type": "relationship",
+      "description": "男女主关系达到阶段性里程碑（好感度突破阈值）",
+      "promised_at_chapter": 50,
+      "fulfilled": false,
+      "fulfilled_at_chapter": null
+    }
+  ],
+
+  "arc_endpoints": {
+    "A_arc": {
+      "description": "主角从弱小到确立核心优势的成长弧",
+      "promised_resolution_chapter": 58,
+      "resolved": false
+    },
+    "B_arc": {
+      "description": "本卷核心人物关系弧（盟友结盟 / 背叛揭露）",
+      "promised_resolution_chapter": 55,
+      "resolved": false
+    }
+  },
+
+  "foreshadowing_heat_map": {
+    "hot": [
+      {"id": "fsh_001", "description": "第3章埋下的悬念，应在本卷内兑现", "planted_chapter": 3, "expected_payoff_by": 50}
+    ],
+    "warm": [
+      {"id": "fsh_002", "description": "道具/线索伏笔，下卷兑现也可", "planted_chapter": 10, "expected_payoff_by": null}
+    ],
+    "cold": []
+  },
+
+  "convergence_status": "on_track",
+
+  "last_checked_chapter": 0
+}

@@ -105,9 +105,10 @@ rules:
     enabled: true
     severity: halt
     description: 第二章必须出现明确金手指或核心反转线索；第一章已出现可视为通过。
+    chapter_guard: 2  # orchestrator 在 chapter_number == 2 时才执行此规则检查
     check:
       type: keyword_any
-      scope: chapter:2
+      scope: full_chapter
       keywords:
         - 系统
         - 签到
@@ -122,9 +123,10 @@ rules:
     enabled: true
     severity: halt
     description: 第三章必须出现至少一次明确爽点兑现或小高潮动作。
+    chapter_guard: 3  # orchestrator 在 chapter_number == 3 时才执行此规则检查
     check:
       type: keyword_any
-      scope: chapter:3
+      scope: full_chapter
       keywords:
         - 碾压
         - 打脸
@@ -196,18 +198,15 @@ rules:
   - rule_id: no_repetitive_description
     enabled: true
     severity: halt
-    description: 同一章内禁止对同一件事、同一状态、同一场景进行重复或高度相似的描述。
+    description: 同一章内禁止对以下静态属性进行重复或高度相似的描述（与 no_circular_repetition 区分：本规则专针静态属性重复）。
     check:
       type: semantic_repeat_detect
       scope: full_chapter
       targets:
         - 人物外貌（同一角色的外貌特征不得描述两次及以上）
-        - 环境特征（同一地点的氛围、天气、布景不得反复交代）
-        - 情绪状态（主角对同一事件的情绪反应不得在不同段落中重复渲染）
         - 能力/金手指原理（已解释的原理不得在同章再次解释）
         - 事件结果（已明确交代的人物处境或事件后果不得重复确认）
       max_similar_blocks: 1
-      # 阈值说明：同一语义单元在章节内出现超过 1 次即视为违规
       # 如需放宽（例如刻意复沓的文学手法），可将 max_similar_blocks 改为 2
 
   - rule_id: chapter_title_quality
@@ -239,6 +238,47 @@ rules:
         - "★"
         - "⚠"
       max_ratio: 0.08
+
+  # ------------------------------
+  # C. v8.0 新增规则
+  # ------------------------------
+  - rule_id: dna_compliance
+    enabled: true
+    severity: halt
+    description: |
+      行文DNA合规检查（v8.0）。当 .xushikj/config/style_modules/dna_human_*.yaml 存在时，
+      正文必须体现 DO 列表中至少 50% 的核心风格特征，且不得违反 DON'T 列表中的任何一条。
+      违反 3 条及以上 DON'T 规则时判定为 halt。
+    check:
+      type: dna_do_dont_audit
+      scope: full_chapter
+      dna_source: ".xushikj/config/style_modules/dna_human_*.yaml"
+      do_min_hit_ratio: 0.5
+      dont_max_violations: 2
+      # 超过 dont_max_violations 时升级为 halt
+
+  - rule_id: human_touch_density
+    enabled: true
+    severity: warn
+    description: |
+      人味注入密度检查（v8.0）。全章必须至少包含 2 处 ht_01~ht_06 的执行痕迹
+      （不完美注入/节奏打破/非视觉感官/内心真实化/微矛盾/距离切换）。
+    check:
+      type: human_touch_scan
+      scope: full_chapter
+      min_touch_points: 2
+      ht_rules_source: ".xushikj/config/human_touch_rules.yaml"
+
+  - rule_id: anchor_debt_check
+    enabled: true
+    severity: warn
+    description: |
+      记忆锚点债务兑现检查（v8.0）。若上一章锚点中存在「下章债务」字段，
+      本章正文必须包含与债务内容相关的情节推进，否则告警。
+    check:
+      type: anchor_debt_verify
+      scope: full_chapter
+      anchor_source: ".xushikj/anchors/"
       # 系统文符号占全章比例不超过 8%，超出时提示是否需要听书模式适配
 
   - rule_id: cliffhanger_variety
@@ -250,3 +290,201 @@ rules:
       scope: last_200_chars
       history_length: 2
       banned_same_pattern: true
+
+  # ------------------------------
+  # C. 信息消耗与情绪前进规则（Burn After Reading 配套）
+  # ------------------------------
+  - rule_id: no_circular_repetition
+    enabled: true
+    severity: halt
+    description: |
+      禁止"车轱辘话"：在没有任何新信息增量的情况下，重复描写同一天气/环境/角色状态，
+      或反复强调某个角色"很强/很恐怖"却没有实际动作/事件作为新证据。
+      与 no_repetitive_description 区分：本规则专注"无新增量的动态重复"；前者专注人物外貌/能力原理/事件结果等静态属性。
+      命中时 Critic Sub-Agent 必须指出具体重复段落并要求以具体肢体动作替换废话。
+    check:
+      type: semantic_repeat_detect
+      scope: full_chapter
+      # 与 no_repetitive_description 不重叠：本规则专注"无新增量的动态重复"（环境/情绪/强度描述）
+      targets:
+        - 同一环境/气氛无新增量的重复交代（优先检测：天气、光线、地点氛围）
+        - 同一角色强度描述无新行动支撑的反复强调（优先检测：很强/恐怖/厉害等形容词堆砌）
+        - 同一情绪状态无推进的循环渲染
+      max_similar_blocks: 1
+      signal_words:
+        - 依然
+        - 还是
+        - 仍然
+        - 如前
+        - 再次感到
+        - 又想起
+        - 依旧
+        # 时间跳步词：命中时检查跳过内容是否应该展开（与 no_skip_words 呼应）
+        - 几天后
+        - 数日后
+        - 数月后
+        - 不知过了多久
+
+  - rule_id: emotion_must_advance
+    enabled: true
+    severity: warn
+    description: |
+      角色情绪和认知必须是单向向前流动的。如果上一场景主角感到震惊，本场景必须进入
+      应对/反击/适应状态，严禁在新场景开头再次描写"他依然感到难以置信"（情绪原地复读）。
+      同一章内，同一角色对同一触发事件的情绪描写不可在两处以相同强度出现。
+    check:
+      type: emotion_flow
+      scope: full_chapter
+      rule: "同一章内，角色对同一事件的情绪描写：第2次出现时必须有状态跃迁（升级/转化/行动化），否则视为平流重复。"
+      signal_patterns:
+        - "依然.*难以置信"
+        - "仍然.*震惊"
+        - "还是.*不敢相信"
+        - "再一次.*愤怒"
+
+  # ------------------------------
+  # D. POV 守纪与过程压缩防止规则
+  # ------------------------------
+  - rule_id: no_omniscient_pov
+    enabled: true
+    severity: halt
+    description: 禁止全知视角剧透句式，POV必须严格绑定视点人物感官范围。出现以下旁白式剧透句型时必须打回重写。
+    check:
+      type: keyword_any
+      scope: full_chapter
+      keywords:
+        - 他不知道的是
+        - 却不知
+        - 殊不知
+        - 然而此刻对方心中
+        - 对方暗暗
+
+  - rule_id: no_skip_words
+    enabled: true
+    severity: halt
+    description: 禁止使用时间/过程跳步词汇代替实际展开，战斗/高潮/关键冲突必须逐节展开，不得用一句总结替代过程。
+    check:
+      type: keyword_any
+      scope: full_chapter
+      keywords:
+        - 经过一番激战
+        - 最终击败
+        - 一番努力后
+        - 就这样过了
+        - 经过一番努力
+        - 在众人的帮助下
+        - 最终解决了
+      threshold: any
+
+  # ------------------------------
+  # E. v8.1 新增规则（P1.1/P1.3/P1.5/P2.6）
+  # ------------------------------
+  - rule_id: hook_type_tracking
+    enabled: true
+    severity: warn
+    description: |
+      记忆锚点钩子类型追踪（v8.1 P1.1）。
+      每章完成后，从 anchor_chapter_{N}.md 的 YAML frontmatter 读取 hook_type 字段，
+      记录到 chapter_meta 中。本规则在质检时验证 hook_type 字段是否已写入锚点文件。
+    check:
+      type: anchor_frontmatter_verify
+      scope: anchor_file
+      required_fields:
+        - hook_type
+        - hook_strength
+      fail_message: "锚点文件缺少 hook_type 或 hook_strength 字段；请按模板填写"
+
+  - rule_id: hook_type_variety
+    enabled: true
+    severity: warn
+    description: |
+      钩子类型多样性检查（v8.1 P1.1）。读取最近 3 章的 chapter_meta 中的 hook_type 字段，
+      若连续 3 章钩子类型完全相同，则告警要求换型。
+    overridable: true
+    override_rationale_types:
+      - user_explicit_intent
+      - genre_constraint
+    check:
+      type: hook_type_sequence
+      history_length: 3
+      banned_same_consecutive: 3
+      data_source: "state.json → chapter_meta"
+      fail_message: "连续3章钩子类型相同（{hook_type}），建议切换为其他类型增加节奏多样性"
+
+  - rule_id: micro_payoff_density
+    enabled: true
+    severity: warn
+    description: |
+      微兑现密度检查（v8.1 P1.3）。每章至少出现 1-2 次可识别的微型兑现事件。
+      7型微兑现类型（满足其中任意一种即为达标）：
+        1. 信息兑现：读者期待的信息被披露（真相/身份/目的）
+        2. 地位兑现：主角社会/权力地位发生可见提升
+        3. 资源兑现：获得实质性资源（装备/钱财/盟友）
+        4. 反制兑现：主角成功反制了来自反派的压迫动作
+        5. 情感兑现：情感期待得到回应（非必须是感情线）
+        6. 认知兑现：读者的悬念得到阶段性解释（不必完整揭露）
+        7. 技能兑现：金手指/核心能力以新方式展示
+      爽文/言情：每章 ≥ 1 次；虐恋/正剧：每章 ≥ 1 次微兑现（质量 > 数量）
+    overridable: true
+    override_rationale_types:
+      - deliberate_tension_chapter
+      - user_explicit_intent
+    check:
+      type: shuang_point_density
+      scope: full_chapter
+      min_payoff_signals: 1
+      payoff_keywords:
+        - 揭露
+        - 真相
+        - 获得
+        - 突破
+        - 震惊
+        - 掌握
+        - 反制
+        - 认出
+        - 奖励
+        - 升级
+        - 盟友
+        - 打脸
+
+  - rule_id: strand_balance_check
+    enabled: true
+    severity: warn
+    description: |
+      Strand Weave 三轨节奏检查（v8.1 P2.6）。
+      三轨定义：
+        Quest   = 主线推进（金手指/实力/目标进展）
+        Fire    = 危机/冲突激化（新威胁/敌对关系/紧迫事件）
+        Constellation = 世界观拓展（设定揭示/新势力出现/关系网络展开）
+      规则：
+        - Quest 主线：≤ 5 章连续无 Fire 或 Constellation 交织 → 告警单调
+        - Fire 危机：间隔 > 10 章未出现 Fire 章节 → 告警失去张力
+        - Constellation：间隔 > 15 章未出现世界观拓展 → 告警世界观停滞
+      数据来源：state.json → strand_tracker
+    overridable: true
+    override_rationale_types:
+      - deliberate_focus_arc
+      - user_explicit_intent
+    check:
+      type: strand_gap_check
+      data_source: "state.json → strand_tracker"
+      thresholds:
+        quest_only_consecutive: 5
+        fire_gap_max: 10
+        constellation_gap_max: 15
+      fail_message: "{strand_type} 轨道节奏异常（间隔/连续已达 {gap} 章），建议插入平衡章节"
+
+  - rule_id: override_contract_log
+    enabled: true
+    severity: warn
+    description: |
+      Override Contract 豁免记录规则（v8.1 P1.5）。
+      当 soft 规则（overridable=true）被手动豁免时，必须将豁免记录写入
+      state.json → override_contracts 数组，包含：rule_id、chapter_number、rationale_type、rationale_note。
+      若豁免未记录，则下章执行时该规则视为未曾豁免，重新触发检查。
+    check:
+      type: override_contract_audit
+      scope: state_json
+      data_source: "state.json → override_contracts"
+      fail_message: "检测到软规则豁免但未写入 override_contracts，请补充记录或取消豁免"
+

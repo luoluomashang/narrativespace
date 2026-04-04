@@ -119,7 +119,7 @@ def check_skill_versions() -> List[str]:
 def print_module_tree() -> None:
     """打印ASCII模块依赖树。"""
     print("\n" + "=" * 70)
-    print("叙事空间创作系统 v3.0 — 模块依赖关系树")
+    print("叙事空间创作系统 v7.0 — 模块依赖关系树")
     print("=" * 70)
     
     tree = """

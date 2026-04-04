@@ -22,6 +22,73 @@
 
 ---
 
+## ⚡ 核心创作法则内嵌区（永驻上下文，每章生效）
+
+> **运作原理**：以下规则物理嵌入 prompt.md，确保长上下文中始终可用。外部 YAML 文件是权威来源，本区为实时约束摘要，无论对话持续多久都保持优先级。
+
+### A. 八条商业化法则（来自 methodology.yaml）
+
+| 法则 | 核心约束 |
+|------|---------|
+| **law_1 极限铺垫** | 四层困境（宏观/中观/微观/个人）同时压制；把主角推向绝境后再翻盘；无充分铺垫禁止释放爽点 |
+| **law_2 期待感管理** | 信息差分层释放；九连环钩子；每 3 章完成一次预告兑现 |
+| **law_3 连锁震惊反应** | 三层震惊链（执行者→亲友→权威）；每个爽点必须设计观众反应链 |
+| **law_4 角色基因锚定** | 道具级细节定义角色；双轨弧光（外弧成就+内弧成长）；信仰底线被触碰时必须反击 |
+| **law_5 核心套路库** | 时间锁/空间锁；大人物遇小事/小人物遇大事；道德两难选择激化人物 |
+| **law_6 数据化评估** | qd_01~qd_08 八维度自检；爽感优先；qd_07 章末钩子 < 7 分触发 WARNING |
+| **law_7 高智商压迫** | 反派智商在线，逻辑严密；规则杀（利用世界规则压制）；每 5 章设一个信息差陷阱 |
+| **law_8 降维打击** | 主角出手打破常规认知；反派越周密，翻盘时的信仰崩塌越大 |
+
+### B. 张力门禁与质量硬门槛
+
+**张力-回报门禁**：`narrative_tension.current_tension < 7` 时，**禁止**释放爽点（打脸/反杀/装逼/升级）；必须先加深铺垫至 current_tension ≥ 7。
+
+**qd_07 章末钩子**：章节落盘前，章末必须卡在关键转折前。若估判 < 7 分，必须重写结尾。
+
+**否决维度**：全章至少有 1 次信息差 + 1 次情绪波峰（二者均为零则本章失效）。
+
+### C. 禁用词速查（来自 style_rules.yaml）
+
+**绝对禁用**（一出现即重写）：
+> `值得注意的是` · `综上所述` · `本质上` · `不可否认` · `毋庸置疑` · `显而易见` · `总而言之` · `不是……而是……` · `subtly` · `gently` · `playfully`
+
+**套路动作禁用**：
+> `眼中闪过一丝精光` · `嘴角微微勾起一抹难以察觉的弧度` · `深邃的眼眸` · `深吸一口气` · `眉头微微一皱`
+
+**高频词控制**（每章 ≤ 2 次）：`微微` · `轻微` · `一丝` · `有些` · `如同` · `仿佛`
+
+**结构硬规则**：
+- 每段 ≤ 3-4 行；禁止连续 3 句同构；长短句必须交错
+- 严禁"心想/暗想"引号格式，改用自由间接引语
+- 章内不切换 POV（视点人物，默认第三人称有限视角）
+
+### D. 写作执行硬约束（来自 writing_rules.yaml 核心）
+
+- **wr_01**：爽点渲染——反派心理崩塌（嚣张→不可置信→绝望）必须详细描写
+- **wr_03**：杀伐果断——主角对敌干脆利落，禁止磨叽/圣母说教
+- **wr_05**：破防递进——嘲讽冷笑→察觉不对→瞳孔地震→跪地求饶，反差越大爽感越足
+- **wr_10**：视角锁定——默认限制三人称，禁止越权描写对手内心，章内不换 POV
+- **wr_11**：信息消耗——信息一经交代即消耗，禁止重复已有背景/设定；镜头单向前推
+
+### E. 章节架构规则（来自 chapter-architecture-rules.md）
+
+- **rule_1 Mission 前置**：开写前必须明确 ①本章要改变什么 ②推进哪条线 ③回收/加压哪笔旧债 ④章末留什么残留压力。无法一句话说明 → 本章视为未就绪。
+- **rule_2 入场偏晚**：从压力已存在的位置开章（决策点/失稳对话/后果逼近/情绪余震），禁止重复前章结尾或以环境描写/主角起床开章。「番茄特化」首段必须呈现已存在的具体冲突或强烈感知。
+- **rule_3 中段转折（硬约束）**：每章中段至少发生一种结构变化：新信息改变判断 / 权力倒转 / 价值冲突显性化 / 计划失败付出代价 / 角色暴露隐藏动机。无转折章节判定为平铺。
+- **rule_4 局部闭合+延续债务**：章末必须同时满足局部闭合（本章局部问题有阶段性落点）+ 延续债务（新风险/旧债升级/关系压力上移）。「番茄特化」在张力最高点戛然而止（大招出口但未落地 / 援军出现但未出手 / 信息揭示一半时硬切）。
+- **rule_5 压力形态轮换**：追逐/谈判/揭示/余波/准备/碰撞——连续两章同形态需换型。
+
+### F. 对话写作规则（来自 dialogue-writing-rules.md）
+
+- **dial_1 双功能约束**：每段关键对话至少承担两项：推进情节 / 暴露角色（欲望/恐惧/羞耻/债务）/ 改变关系压力 / 隐藏或扭曲信息。仅"解释背景"的对话压缩为叙述句。
+- **dial_2 声音来自压力**：角色区分靠句长与停顿习惯、直给/回避程度、社会位置、压力下的应对（进攻/转移/沉默/玩笑），禁止只靠口头禅制造人设差异。
+- **dial_3 潜台词优先**：能潜说则不直说——答非所问 / 说实务不说情绪 / 低反应掩盖高痛点 / 用动作替代表白。
+- **dial_4 沉默与打断是信息**：有压力的沉默（抵抗/计算/羞耻/权力失衡）是有效台词；无压力的沉默是空白。
+- **dial_5 信息披露绑定冲突**：禁止"双方都知道还互相复述"的作者代言式对话；信息披露必须绑定利益冲突/身份冲突/情感代价/决策倒计时之一。
+- **dial_7 主角性格可见**：主角在关键对话中必须体现至少一种稳定倾向（防御幽默/过度控制/直接压迫/自我否定/道德化判断）。
+
+---
+
 ## 前置加载
 
 ### 常驻加载（每次对话开始）
@@ -79,21 +146,27 @@
 │                                                                  │
 │  ┌──────┐   校验通过   ┌─────────┐  用户选定开局  ┌───────────┐  │
 │  │ INIT │ ──────────→ │ OPENING │ ─────────────→ │ PING_PONG │  │
-│  └──────┘              └─────────┘                └─────┬─────┘  │
-│     ↑                                                   │        │
-│     │                              ┌────────────────────┼────┐   │
-│     │                              │                    │    │   │
-│     │                              │  ┌──────────┐      │    │   │
-│     │                              │  │ ROLLBACK │ ←────┘    │   │
-│     │                              │  └─────┬────┘  "撤回"   │   │
-│     │                              │        │ 重新生成       │   │
-│     │                              │        ↓               │   │
-│     │                              │  回到 PING_PONG ───────┘   │
-│     │                              │                            │
-│     │     累积 ≥ 1500字            │                            │
-│     │  ┌───────────────┐           │                            │
-│     │  │ PACING_ALERT  │ ←─────────┘                            │
-│     │  └──────┬────────┘                                        │
+│  └──────┘              └─────────┘                └──┬──────┬─┘  │
+│     ↑                            fork_point/分支推演 │      │    │
+│     │                              ┌─────────────────┘      │    │
+│     │                              ↓                        │    │
+│     │                         ┌──────┐   用户选A/B           │    │
+│     │                         │ FORK │ ──────────────────────┘    │
+│     │                         └──────┘  (返回PING_PONG)           │
+│     │                              │                              │
+│     │                              ├────────────────────┐         │
+│     │                              │                    │         │
+│     │                              │  ┌──────────┐      │         │
+│     │                              │  │ ROLLBACK │ ←────┘ "撤回" │
+│     │                              │  └─────┬────┘               │
+│     │                              │        │ 重新生成             │
+│     │                              │        ↓                    │
+│     │                              │  回到 PING_PONG ─────────────┘
+│     │                              │                              │
+│     │     累积 ≥ 1500字            │                              │
+│     │  ┌───────────────┐           │                              │
+│     │  │ PACING_ALERT  │ ←─────────┘                              │
+│     │  └──────┬────────┘                                          │
 │     │         │ "落盘"/"本章结束"                                 │
 │     │         ↓                                                  │
 │     │  ┌─────────┐    冻结草稿    ┌─────────────┐                │
@@ -107,6 +180,100 @@
 ---
 
 ## INIT 阶段
+
+### ⛔ 零步骤：强制初始化序列（每章开始必须执行，不可跳过，不可合并）
+
+> **作用**：对抗长上下文注意力衰减。以下 4 道 Checkpoint 必须按顺序逐一执行，每道必须在对话中输出对应格式的确认 token。**任何 Checkpoint 未通过 → HALT，禁止进入后续步骤。**
+
+---
+
+#### CHECKPOINT-1：项目状态加载
+
+执行：File Read `.xushikj/state.json`
+提取：`chapter_state.current_chapter`、`narrative_tension.current_tension`、`config.writing_mode`、`config.reply_length`
+校验：`writing_mode` 必须为 `"interactive"`
+
+✅ **输出 token（必须出现在你的回复中）**：
+```
+[CP-1 ✓ | 第{N}章 | tension={X} | mode=interactive | reply_length={L}]
+```
+
+❌ 若 `state.json` 读取失败或 `writing_mode ≠ interactive` → HALT：
+> "项目状态异常，无法进入互动模式。请检查 `.xushikj/state.json` 是否存在且 `writing_mode` 为 `interactive`。"
+
+---
+
+#### CHECKPOINT-2：规则文件批量加载
+
+逐一 File Read 以下文件（**不得跳过任何一个**）：
+- □ `.xushikj/config/methodology.yaml`
+- □ `.xushikj/config/writing_rules.yaml`
+- □ `.xushikj/config/style_rules.yaml`
+- □ `.xushikj/config/quality_dimensions.yaml`
+- □ `.xushikj/config/content_limits.yaml`
+- □ `.xushikj/config/meta_rules.yaml`
+- □ `.xushikj/config/declarations.yaml`
+- □ `.xushikj/config/safety_guard.yaml`
+- □ `.xushikj/references/chapter-architecture-rules.md`
+- □ `.xushikj/references/dialogue-writing-rules.md`
+
+对每个文件：记录 ✓（成功）或 ✗（失败 → 使用本文件顶部内嵌区对应规则替补，不得跳过规则激活）
+统计：`loaded_count` / `fallback_count`
+
+✅ **输出 token**：
+```
+[CP-2 ✓ | 已加载 {loaded_count}/10 | 降级 {fallback_count} 处]
+```
+
+❌ 若未输出此 token 即进入后续步骤 → 本次对话所有后续输出无效
+
+---
+
+#### CHECKPOINT-3：write_constraints 编译 + 风格模块加载
+
+执行执行清单第 6 步的完整 `write_constraints` 编译流程。
+额外加载（如存在）：
+- □ `golden_opening.yaml`（前 3 章）
+- □ `style_modules/*.yaml`
+- □ `dna_human_*.yaml`（**优先级最高**）
+- □ `human_touch_rules.yaml`（**提取 ht_01~ht_07**）
+- □ `emotional_temperature.yaml`
+- □ `bangui_modes.yaml`
+- □ `trpg_immersion.yaml`（提取 truncation_priority + decision_density + anti_proxy_rule）
+
+✅ **输出 token**：
+```
+[CP-3 ✓ | write_constraints={字符数}字 | 风格模块={模块列表或"无"}]
+```
+
+❌ 若 `write_constraints` 编译结果 < 100 字 → 强制使用本文件内嵌区 A+B+C+D 全量替补后重新输出 CP-3
+
+---
+
+#### CHECKPOINT-4：上下文加载 + 最终确认
+
+执行：
+- □ 加载记忆锚点（最近 3 章，如存在）
+- □ 加载帮回配置（`bangui_modes.yaml`）
+- □ 检查 RAG 索引可用性（`.xushikj/rag/rag_index.json` 是否存在）
+- □ 断点续做检查（WIP 文件是否存在）
+- □ 额外本地校验：`planning_guard.plan_package_confirmed == true`
+
+✅ **输出 token**：
+```
+[CP-4 ✓ | 锚点={有/无} | RAG={可用/不可用} | WIP={有(X字)/无} | 初始化完成，准备进入 OPENING]
+```
+
+❌ 若 `plan_package_confirmed ≠ true` → HALT：
+> "规划包未确认，请先完成并确认当前规划步骤。"
+
+---
+
+> ⚠ **四道 Checkpoint 全部通过后方可进入 INIT 执行清单。**
+> ⚠ **不允许合并输出多个 Checkpoint token。每个 CP 必须在执行对应操作后单独输出。**
+> ⚠ **严禁跳步、降级或以"已加载"为由省略任何 CP。**
+
+---
 
 ### 执行清单
 
@@ -129,11 +296,48 @@
    - 读取 `.xushikj/config/meta_rules.yaml`
    - 读取 `.xushikj/config/declarations.yaml`
    - 读取 `.xushikj/config/safety_guard.yaml`
+   - 读取 `.xushikj/references/chapter-architecture-rules.md`，提取 Mission/Turn/Residue 章节架构规则，翻译为每章级指令注入 `write_constraints`
+   - 读取 `.xushikj/references/dialogue-writing-rules.md`，提取压力驱动对话规则，注入 `write_constraints`（与 `writing_rules.yaml` 并列，优先级相同）
    - 若 `chapter_number <= 3`：读取 `.xushikj/config/golden_opening.yaml`，将 go_01-go_07 翻译为回合级指令（如 go_07 → "每回合必须包含至少一个情绪刺点"）
+   - 读取 `state.json → style_module_state.active_modules`：若列表非空，逐一加载 `.xushikj/config/style_modules/{module}.yaml`，提取规则摘要注入 `write_constraints`（优先级高于通用 style_rules.yaml）
+   - 扫描 `.xushikj/config/style_modules/clone_*.yaml`：若存在，加载并注入语感克隆规则（句式节奏/词汇偏好/感官密度/情绪幅度），**优先级高于内置风格模块**
+   - 扫描 `.xushikj/config/style_modules/dna_human_*.yaml`：若存在，加载并注入行文DNA可执行约束（DO/DON'T 对照表 + 标杆段落），**优先级最高，高于 clone_*.yaml 和所有内置模块**
+   - 读取 `.xushikj/config/human_touch_rules.yaml`：提取 ht_01~ht_06 六条人味注入规则摘要，注入 `write_constraints`
+   - 读取 `.xushikj/config/emotional_temperature.yaml`：提取当前温度等级对应的写作效果约束，注入 `write_constraints`
+   - 读取 `state.json → benchmark_state.down_weighting`：若列表非空，追加降权规则到 `write_constraints`（"以下表达模式与对标作品风格不符，请降低使用频率：{列表}"）
    - 编译为精简摘要 `write_constraints`，后续每回合只传此摘要
+
+   > **⛔ 降级兜底规则（强制执行，不可跳过）**：若上述任一文件读取失败，不得中断流程或留空 write_constraints。必须从本文件顶部 ⚡ 核心创作法则内嵌区提取对应规则补全：
+   > - `writing_rules.yaml` 失败 → 使用内嵌区 **D**（写作执行硬约束 wr_01~wr_11）
+   > - `style_rules.yaml` 失败 → 使用内嵌区 **C**（禁用词速查）
+   > - `methodology.yaml` 失败 → 使用内嵌区 **A**（八大法则）
+   > - `quality_dimensions.yaml` 失败 → 使用内嵌区 **B**（质量评分标准）
+   > - `chapter-architecture-rules.md` 失败 → 使用内嵌区 **E**（章节架构规则）
+   > - `dialogue-writing-rules.md` 失败 → 使用内嵌区 **F**（对话写作规则）
+   >
+   > **最终兜底校验**：若 write_constraints 编译完成后内容量小于 100 字（判定为文件读取全部失败）→ 强制将本文件内嵌区 A+B+C+D 完整内容作为 write_constraints，禁止以任何理由留空。
 7. **一次性加载风格对标切片**（如存在）：
    - 检查 `.xushikj/benchmark/style_snippets/` → 加载 1-2 个匹配切片 → 存入 `style_reference_snippets`
+7.5. **加载 Few-Shot 写作示例**（如存在）：
+   - 检查 `.xushikj/references/few_shot_examples.md` 是否存在
+   - 若存在：读取 `state.json → config.novel_type_tags` → 选取题材最匹配的 1-2 个示例段落 → 存入 `few_shot_snippets`
+   - 若不存在：`few_shot_snippets = null`（不阻塞）
+7.6. **加载归档记忆**（条件触发）：
+   - 触发条件：`state.json → planning_state.current_volume > 1`（跨卷故事）
+   - 若触发且 `.xushikj/archive_memory.json` 存在：读取并按主角 char_ID 筛选前 5 条 → 存入 `archive_memory_snippets`
+   - 否则：`archive_memory_snippets = null`
 8. **加载帮回配置**：读取 `.xushikj/config/bangui_modes.yaml` 常驻内存
+8.5. **加载跑团沉浸感配置**：读取 `.xushikj/config/trpg_immersion.yaml`，提取 `decision_density`、`decision_types`、`interrupt_system`、`consequence_preview` 配置
+8.6. **加载情绪温度配置**：读取 `.xushikj/config/emotional_temperature.yaml`，提取温度等级定义和默认曲线
+8.7. **加载人味规则**：读取 `.xushikj/config/human_touch_rules.yaml`，提取 6 条规则（ht_01~ht_06）摘要注入 `write_constraints`
+8.8. **加载行文DNA模块**（如存在）：
+   - 扫描 `.xushikj/config/style_modules/dna_human_*.yaml`
+   - 若存在：加载并提取 DO/DON'T 对照表 + 标杆段落 → 注入 `write_constraints`，**优先级最高，高于 clone_*.yaml 和所有内置模块**
+   - 若不存在：跳过，不阻塞流程
+8.9. **加载记忆锚点**（如存在）：
+   - 读取 `.xushikj/anchors/` 目录，加载最近 3 章的锚点文件（`anchor_chapter_{N-1}.md` ~ `anchor_chapter_{N-3}.md`）
+   - 锚点内容优先级高于 summary_index.md，作为上下文衔接的第一来源
+   - 若不存在：跳过，不阻塞流程
 9. **断点续做检查**：
    - 如果 `.xushikj/drafts/chapter_{N}_wip.md` 存在且非空
    - → 读取 WIP 文件恢复 `current_chapter_draft` 和 `accumulated_word_count`
@@ -143,7 +347,20 @@
 
 ### 转移到 OPENING
 
-校验全部通过 → 进入 OPENING。
+#### 🚦 阶段门禁：INIT → OPENING
+
+前置条件校验（全部必须满足）：
+- □ CP-1 ~ CP-4 全部输出 token（已通过）
+- □ `write_constraints` 非空（≥ 100 字）
+- □ 帮回配置（`bangui_modes.yaml`）已加载
+- □ 准入门槛（Core Meta + KB + Characters）已确认
+
+✅ **输出 token（必须出现在你的回复中）**：
+```
+[GATE: INIT→OPENING ✓]
+```
+
+❌ 任何条件未满足 → HALT，告知用户缺失项，禁止进入 OPENING。
 
 ---
 
@@ -160,6 +377,19 @@
 1. 解析用户回答为初始场景参数
 2. 构建首回合 KB 切片
 3. 设置 `turn_number` = 1，`cycle_status` = `"writing"`
+
+#### 🚦 阶段门禁：OPENING → PING_PONG
+
+前置条件校验（全部必须满足）：
+- □ 用户已回答开局方向（非空输入，非"跳过"）
+- □ 首回合 KB 切片已构建（`kb_slice` 非空）
+- □ `turn_number` 已设为 1
+
+✅ **输出 token（必须出现在你的回复中）**：
+```
+[GATE: OPENING→PING_PONG ✓ | 第{N}章开局就绪]
+```
+
 4. → 进入 PING_PONG，执行首回合
 
 ---
@@ -180,7 +410,9 @@
 | `帮回{指令名}[选项]` | orchestrator 先构思 2-3 个方向让用户选择 → 选定后再派发 |
 | "改上一段" | → 进入微调模式（见下方） |
 | "撤回" / "重骰" / "退回上一步" / "SL" | → 跳转 ROLLBACK |
+| "等等" / "停" / "我要插嘴" / "换个方向" | → 跳转 INTERRUPT（v8.0 新增） |
 | "落盘" / "本章结束" / "OK落盘" | → 跳转 LANDING |
+| "分支推演" / "让我看看两条路" / "fork" | → 跳转 FORK |
 | `帮回章节规划` | orchestrator 主进程内生成规划方案，不派发 DM sub-agent |
 | `帮回分析` / `帮回爽点分析` | orchestrator 主进程内执行诊断分析 |
 | 模糊输入 | 主动追问："你要主角做什么？大致方向是正面硬刚还是迂回？" |
@@ -208,7 +440,39 @@
   ✓ timeline: 最近 5 条
 ```
 
-#### 4. 构建滑动窗口 draft_context
+#### 3.5 构建 npc_hidden_states
+
+```
+尝试从 kb_slice 中获取 NPC 的隐藏动机信息，按以下优先级查找：
+
+优先级 1：kb_slice.world_events.faction_private_state（若 KB 中存在 world_events 字段）
+  → 筛出满足以下条件的条目：
+    - 所属 NPC 在本回合涉及角色列表（char_IDs）中
+    - 或具备 active_intervention: true 字段
+
+优先级 2（fallback）：若 world_events 字段不存在，从 kb_slice.entities.factions 推断：
+  → 筛出本回合涉及角色（char_IDs）所属的势力条目
+  → 从 factions[].goals 推断 NPC 的隐藏动机方向
+  → 将推断结果构建为 npc_hidden_states 条目，active_intervention = false（推断值，非确认值）
+
+如果以上两路均找不到相关数据：
+  npc_hidden_states = null
+
+如果筛出结果（或推断结果）非空，构建：
+  npc_hidden_states = [
+    {
+      "npc_id": "<角色ID>",
+      "hidden_motive": "<玩家不知道的真实意图>",
+      "active_intervention": true | false,
+      "intervention_direction": "<若 true，描述干预方向>"
+    },
+    ...
+  ]
+
+注意：此数据仅供 DM sub-agent 使用（作者视角），严禁在正文输出中展示给玩家
+```
+
+#### 4. 构建 draft_context
 
 ```
 如果 accumulated_word_count <= 1000：
@@ -235,6 +499,10 @@
 
 #### 6. 组装参数 → 启动 DM sub-agent
 
+**启动前守卫**：检查 `write_constraints` 不得为空。若为空（INIT 阶段配置读取失败），HALT 并提示：
+> "写作规则摘要编译失败，请退出并重新进入 INIT 阶段，或检查项目 `.xushikj/config/` 配置完整性。"
+> 不得在 `write_constraints` 为空的情况下启动 DM sub-agent。
+
 ```
 启动 DM sub-agent（references/interactive-writer-sub-agent-prompt.md），参数：
   project_dir: {绝对路径}
@@ -245,24 +513,65 @@
   draft_context: {滑动窗口上下文}
   accumulated_word_count: {当前累积字数}
   kb_slice: {KB 切片 JSON}
+  npc_hidden_states: {构建的 NPC 隐藏状态 JSON 或 null}
   write_constraints: {预编译摘要}
   current_sensitivity: {GREEN/YELLOW/RED}
   declarations: {根据 current_sensitivity 组装的声明文本}
   style_reference_snippets: {对标切片或 null}
+  few_shot_snippets: {INIT 7.5 加载的写作示例或 null}
+  archive_memory_snippets: {INIT 7.6 加载的归档快照或 null}
   active_foreshadowing: {活跃伏笔}
   pacing_hint: {"free" / "wrap_up" / "cliffhanger"}
+  decision_density: {"dense" / "normal" / "sparse"，由 scene_pressure 自动判定或用户手动覆盖}
+  emotional_temperature: {当前回合情绪温度值 1-10，从温度曲线或默认值获取}
+  anchor_snippets: {最近 3 章记忆锚点文本，INIT 8.9 加载的内容或 null}
+  recent_summaries: {按概要注入策略选取的历史章节摘要内容（见下方）}
+```
+
+**recent_summaries 概要注入策略（每回合对 recent_summaries 赋值）**：
+
+```
+已落盘章节数 = state.json → chapter_state.current_chapter
+概要总字数 = 统计 summaries/summary_index.md 全文字数（若不存在则为 0）
+
+如果 已落盘章节数 == 0：
+  recent_summaries = null
+
+如果 1 ≤ 已落盘章节数 ≤ 3：
+  → recent_summaries = 前章文件末尾 500 字（路径：chapters/chapter_{N-1}.md）
+  → 前章末尾 500 字确保本章开头能无缝衔接
+
+如果 已落盘章节数 > 3 且 概要总字数 < 4000：
+  → recent_summaries = 完整 summaries/summary_index.md 内容 + 前章末尾 500 字
+
+如果 概要总字数 ≥ 4000：
+  → recent_summaries = 完整 summaries/summary_index.md 内容（DM 自行压缩理解）
+
+注：orchestrator 绝不主动压缩概要。
 ```
 
 #### 7. 接收 DM sub-agent 返回 → 更新状态
 
 ```
-new_fragment = DM sub-agent 返回的正文片段（【正文推演】块内的内容）
-current_chapter_draft += new_fragment
-accumulated_word_count += len(new_fragment)
-turn_number += 1
-turn_history.append(new_fragment)
+raw_output = DM sub-agent 完整返回内容
 
-写入 WIP 文件：.xushikj/drafts/chapter_{N}_wip.md（覆盖写入完整 current_chapter_draft）
+如果 raw_output 包含 "✗ DM HALT"：
+  → 解析触发的 HC 代码（HC3 或 HC4）
+  → 日志记录："[第{N}章 回合{turn_number}] DM HALT 触发，{原因}"
+  → 不追加任何内容到 current_chapter_draft
+  → 向用户提示：
+    "本回合内容生成异常（{HC代码}：{原因}），已自动重试。如连续失败请确认场景设定。"
+  → 以相同参数重新调用 DM sub-agent（最多重试 2 次）
+  → 若 3 次均 HALT，停止重试，向用户完整展示 HALT 原因，等待用户修改 user_decision
+
+否则：
+  new_fragment = 【正文推演】块内的内容（截取标记内文本）
+  current_chapter_draft += new_fragment
+  accumulated_word_count += len(new_fragment)
+  turn_number += 1
+  turn_history.append(new_fragment)
+
+  写入 WIP 文件：.xushikj/drafts/chapter_{N}_wip.md（覆盖写入完整 current_chapter_draft）
 ```
 
 #### 8. 呈现给用户
@@ -291,6 +600,78 @@ turn_history.append(new_fragment)
 
 ---
 
+## FORK 阶段（多路分支推演）
+
+### 触发条件
+
+1. **DM 主动标注**：DM sub-agent 在正文末尾标注 `[fork_point: true]`，表示当前剧情抵达重大岔路口
+2. **用户主动触发**：用户输入"分支推演"、"让我看看两条路"、"fork"
+
+### 执行步骤
+
+```
+1. orchestrator 暂停 PING_PONG 循环，记录 fork_context：
+   fork_context = {
+     "fork_at_turn": turn_number,
+     "fork_at_word_count": accumulated_word_count,
+     "draft_snapshot": current_chapter_draft   ← 完整快照，作为两路推演的共同起点
+   }
+
+2. 启动世界线A推演——调用 DM sub-agent，额外注入：
+   fork_branch: "A"
+   fork_instruction: "按主角当前倾向（攻击/接受/推进）推演，输出 400-500 字，在新岔路点截断"
+   pacing_hint: "free"（不受当前字数影响）
+   draft_context: fork_context.draft_snapshot
+
+3. 启动世界线B推演——调用 DM sub-agent，额外注入：
+   fork_branch: "B"
+   fork_instruction: "按主角反向选择（撤退/拒绝/绕行/激进反转）推演，输出 400-500 字，在新岔路点截断"
+   pacing_hint: "free"
+   draft_context: fork_context.draft_snapshot
+
+4. 两路均完成后，向用户展示：
+
+   ╔══════════════════════════════╗
+   ║  【分支推演】命运的岔路口到了  ║
+   ╚══════════════════════════════╝
+
+   ──── 世界线 A ────
+   {世界线A的 400-500 字正文预览}
+
+   ──── 世界线 B ────
+   {世界线B的 400-500 字正文预览}
+
+   → 你选择哪条世界线？
+     [A] 沿世界线A继续
+     [B] 沿世界线B继续
+     [自定义] 这两条都不要，我要……
+
+5. 用户选定后：
+   如果选 A：
+     current_chapter_draft += 世界线A预览正文
+     accumulated_word_count += len(世界线A预览)
+     turn_history.append(世界线A预览)
+   如果选 B：
+     current_chapter_draft += 世界线B预览正文
+     accumulated_word_count += len(世界线B预览)
+     turn_history.append(世界线B预览)
+   如果自定义：
+     以用户输入为 user_decision，走正常 PING_PONG 流程重新调用 DM sub-agent
+
+6. 清除 fork_context，更新 WIP 文件，状态切回 PING_PONG
+```
+
+### 约束
+
+- FORK 不消耗 `turn_number`（用户选定后 turn_number +1，视为一次回合）
+- 世界线预览的字数计入 `accumulated_word_count`，可正常触发 PACING_ALERT
+- **每条世界线预览不超过 500 字**（在 fork_instruction 已指定 400-500 字的基础上，orchestrator 须在收到 DM 输出后截断超出部分）
+- 在 PACING_ALERT 状态下也可触发 FORK，但两路的 `pacing_hint` 均强制为 `"cliffhanger"`
+- 连续两次 FORK（上一回合已是 FORK 结果）须向用户确认："再次分支会让叙事线分散，确认继续？"
+- FORK 预览不触发 Critic 检查（Critic 仅由 pipeline 模式在完整章节后触发）
+
+---
+
 ## ROLLBACK 阶段（悔棋 / SL 大法）
 
 触发词：`撤回`、`重骰`、`退回上一步`、`SL`
@@ -303,8 +684,11 @@ turn_history.append(new_fragment)
   → 保持当前状态
 
 如果上一回合已经是 ROLLBACK（连续第二次撤回）：
-  → 询问确认："连续撤回会导致较大剧情断裂，确认要再退一步吗？"
-  → 用户确认后执行；否则取消
+  → 显示确认提示：
+      「连续撤回可能导致叙事断裂。确认再退一步吗？
+        [Y] 确认撤回 / [N] 取消，保持当前进度」
+  → 用户回复 Y / 确认 / 是 → 执行回退
+  → 用户回复 N / 取消 / 否，或输入任何其他非确认内容 → 取消，保持当前状态
 
 执行回退：
   1. removed_fragment = turn_history.pop()（移除最后一个回合片段）
@@ -326,6 +710,59 @@ turn_history.append(new_fragment)
 - 单次只能回退 1 个回合（防无限 SL）
 - 连续第二次 ROLLBACK 需用户确认
 - 回退后 `last_action` 标记会在下一次正常推演后清除
+
+---
+
+## INTERRUPT 阶段（即时干预，v8.0 新增）
+
+触发词：`等等`、`停`、`我要插嘴`、`换个方向`
+
+与 ROLLBACK 互补：ROLLBACK 是「事后回退已落笔片段」；INTERRUPT 是「实时干预当前生成方向」。
+
+### 执行逻辑
+
+```
+用户发送中断触发词 + 新指令（如"等等，我不想这么做，改成XXX"）：
+
+1. 标记当前回合为 interrupted（不追加到 current_chapter_draft）
+2. 提取用户新指令作为 override_decision
+3. 以当前 draft_context + override_decision 重新调用 DM sub-agent
+4. DM sub-agent 按新指令产出全新片段 + 全新选项
+5. 按 PING_PONG 步骤 7-9 处理
+6. 回到 PING_PONG 状态
+
+如果用户仅发送触发词而未附带新指令：
+  → 追问："你想让主角怎么做？给个大致方向。"
+  → 等待用户补充后执行上述流程
+```
+
+### 约束
+
+- INTERRUPT 不消耗 `turn_number`（视为同一回合的重新生成）
+- INTERRUPT 不影响 WIP 文件（因原片段未入库）
+- 连续 INTERRUPT 无限制（与 ROLLBACK 不同，因为无已落笔内容需要回退）
+
+---
+
+## 重锚周期（v8.0 新增，每 5 回合强制执行）
+
+> **作用**：对抗互动模式下长对话的注意力衰减。
+
+### 触发条件
+
+- 每 5 个回合（`turn_number % 5 == 0`）
+- 或当 `accumulated_word_count > 3000`（长章节中段）
+
+### 执行步骤
+
+```
+步骤 1：重新读取 state.json → 提取关键状态
+步骤 2：按 required_context_files.step_10B_interactive 清单逐一 File Read
+步骤 3：重新读取最近 3 章记忆锚点
+步骤 4：输出确认 token：[重锚完成 | 回合{turn_number} | tension={current_tension} | 规则已重激活]
+```
+
+**⚠ 重锚期间暂停 PING_PONG**，完成后自动恢复。
 
 ---
 
@@ -352,7 +789,66 @@ turn_history.append(new_fragment)
 
 ## LANDING 阶段
 
+#### 🚦 阶段门禁：进入 LANDING
+
+前置条件校验（全部必须满足）：
+- □ `current_chapter_draft` 非空（已有正文内容）
+- □ 用户明确触发落盘指令（"落盘" / "本章结束" / "OK落盘"）
+- □ `accumulated_word_count` > 0
+
+✅ **输出 token（必须出现在你的回复中）**：
+```
+[GATE: →LANDING ✓ | 字数={accumulated_word_count}]
+```
+
+❌ 若 `current_chapter_draft` 为空或用户未明确触发落盘 → HALT，提示用户继续 PING_PONG 或确认落盘指令。
+
+---
+
 用户确认落盘（"落盘" / "本章结束" / "OK落盘"）后执行。
+
+### 分支归档询问（落盘前置，每章必须执行）
+
+在执行正式落盘前，询问用户本章是否进入正典主线：
+
+> 「本章草稿已完成（{accumulated_word_count} 字）。
+>   请确认本章的归属：
+>   [正典] 进入主线，保存为 chapters/chapter_{N}.md
+>   [支线] 作为实验性世界线存档，不计入主线章节号」
+
+**执行规则**：
+
+```
+如果用户选择 [正典] 或输入确认词（"主线"/"正典"/"确认"/"yes"/"Y"/"是"）：
+  → 正常落盘，写入 chapters/chapter_{N}.md
+  → state.json → interactive_state.confirmed_chapter = N
+  → （流程继续，不影响后续步骤）
+
+如果用户选择 [支线] 或输入（"支线"/"存档"/"不算"/"试试看"/"branch"）：
+  → 生成分支标签：
+      branch_label = "A" / "B" / "C"...（按 branch_registry 中当前章已有条目数自动递增）
+  → 写入 .xushikj/branches/chapter_{N}_path_{branch_label}.md
+  → 更新 state.json → interactive_state.branch_registry：
+      "chapter_{N}": {
+        "canonical": false,
+        "branches": [
+          {
+            "label": "{branch_label}",
+            "path": "branches/chapter_{N}_path_{branch_label}.md",
+            "word_count": {accumulated_word_count},
+            "archived_at": "{timestamp}"
+          }
+        ]
+      }
+  → 不更新 chapter_state.current_chapter
+  → 提示用户："已存档为支线 {branch_label}，章节号保持在第 {N} 章。输入任意内容重新开始本章推演。"
+  → 回到 INIT（本章重新开始，不落盘）
+
+守卫规则：
+  - 若 .xushikj/branches/ 不存在，在写入前自动创建
+  - 支线内容不触发 maintenance agent
+  - 支线内容不生成记忆锚点、不更新 KB
+```
 
 ### 执行清单
 
@@ -367,6 +863,13 @@ turn_history.append(new_fragment)
      → 用户选择强制 → 继续落盘
    - WARN 级：记录但不阻塞
 3. **写入正式章节**：`chapters/chapter_{N}.md`
+3.5. 【v8.0 新增】**生成记忆锚点**：
+   - 参照 `templates/chapter_anchor_template.md` 格式，从本章正文提取四字段锚点：
+     - 关键转折（一句话）
+     - 最紧迫悬念（一句话）
+     - 主角情绪快照（须含具象比喻，≤30 字）
+     - 下章债务（必须兑现的承诺）
+   - 整锚点 ≤150 字，保存到 `.xushikj/anchors/anchor_chapter_{N}.md`
 4. **启动 maintenance agent**（参见 `references/maintenance-agent-prompt.md`）：
    - Step 0：从完整 WIP 提取 KB diff（时间轴扫描法）
    - Step 1：验证并应用 KB diff → 更新 `knowledge_base.json`
@@ -376,6 +879,8 @@ turn_history.append(new_fragment)
 5. **更新 state.json**：
    - `chapter_state.current_chapter` +1
    - `knowledge_base_version` +1
+   - `files.anchors` 追加本章锚点路径（v8.0 新增）
+   - `line_heat.last_updated_chapter` = 当前章节号（与流水线模式保持一致，标记本次 line_heat 数据新鲜度，防止切回流水线时数据失真）
    - `updated_at` 更新
 6. **更新 memory.md**：记录本章落盘信息
 7. **清理章内变量**：重置 `current_chapter_draft`、`turn_history`、`accumulated_word_count`、`turn_number`、`current_sensitivity`

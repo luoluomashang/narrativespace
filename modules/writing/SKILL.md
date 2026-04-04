@@ -1,11 +1,11 @@
----
+﻿---
 name: xushikj-xiezuo
 description: |
   叙事空间创作系统·写作模块。执行步骤10：逐章创作。
   采用 orchestrator + 2 sub-agents 架构，集成帮回辅助系统、双保险机制、质量评估。
 metadata:
-  version: 3.0.0
-  parent: opencode-xushikj-chuangzuo
+  version: 8.2.0
+  parent: narrativespace-xushikj
   step: 10
   triggers:
     - 写第N章
@@ -74,6 +74,8 @@ metadata:
 4. `.xushikj/config/meta_rules.yaml`
 5. `.xushikj/config/quality_dimensions.yaml`
 6. `.xushikj/config/self_check_rules.yaml`（写后自查闸门规则，用户可修改）
+7. `.xushikj/config/human_touch_rules.yaml`（v8.0 人味注入规则）
+8. `.xushikj/config/emotional_temperature.yaml`（v8.0 情绪温度配置）
 
 若任一配置读取失败或为空，必须 HALT 并返回缺失项，禁止带病开写。
 
@@ -93,18 +95,17 @@ metadata:
 
 按 `state.json.config.reply_length` 执行最小字数：
 
-1. `A`：>= 3000
-2. `B`：>= 1500
-3. `C`：>= 800
-4. `D`：>= 1200（默认提升，防止过短）
+1. `A`：>= 5000
+2. `B`：>= 4000
+3. `C`：>= 2500
+4. `D`：>= 2000（默认档，适合番茄等平台标准章节）
 
 未达标时不得进入总结与质检，必须先补写到达标再继续。
 
 当 `target_platform=fanqie` 时，追加硬门槛：
 
-1. D 级最低门槛提升至 **2000 字**（覆盖通用 D=1200 规则）
-2. 单章超过 **3500 字** 时触发 HALT，要求拆分为两章后重新进入自查
-3. 质量备注中需报告"当前字数 / 建议区间 2000-3000"
+1. 单章超过 **3500 字** 时触发 HALT，要求拆分为两章后重新进入自查
+2. 质量备注中需报告"当前字数 / 建议区间 2000-3500"
 
 ### 3) 场景文件路径
 
@@ -139,6 +140,32 @@ metadata:
 2. 主角与关键角色口吻是否回归
 3. 关系压力读数是否被削平
 4. 章末钩子与残留义务是否仍成立
+
+## v8.0 新增特性
+
+### 行文DNA约束（最高优先级）
+
+当 `.xushikj/config/style_modules/dna_human_*.yaml` 存在时：
+- 自动注入 write_constraints，优先级高于 clone_*.yaml 和所有内置模块
+- chapter-writer sub-agent 新增 Self_Audit Q8（DNA 合规自检）
+- critic sub-agent 新增红线四（DNA 严重偏离 → 退稿）
+
+### 情绪温度系统
+
+读取 `.xushikj/config/emotional_temperature.yaml`，基于场景类型自动匹配温度曲线：
+- cold（1-3）：感官削减，叙述拉远
+- warm（4-6）：正常情感密度
+- hot（7-10）：感官过载，短句爆发
+
+### 人味注入规则
+
+读取 `.xushikj/config/human_touch_rules.yaml`，ht_01~ht_06 六条规则强制执行：
+不完美注入 / 节奏打破 / 非视觉感官锚定 / 内心声音真实化 / 微矛盾 / 叙事距离切换。
+
+### 记忆锚点系统
+
+每章完成后自动生成 ≤150 字记忆锚点（关键转折/悬念/情绪快照/债务），保存到 `.xushikj/anchors/`。
+下一章开写前自动加载最近 3 章锚点，确保跨章衔接。
 
 ## 偏移报警与自动停机（新增）
 

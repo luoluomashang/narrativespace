@@ -36,6 +36,14 @@ strategy:
       preservation_duration: "一卷"  # 仅保留当前卷的历史
       recall_trigger: "需要回溯早期设定时"
 
+    - id: "condition_5"
+      name: "summary_index分卷归档"
+      description: "当 summary_index.md 超过 300 行时，将最早的 100 章条目移入分卷存档文件"
+      trigger_event: "summary_index.md 行数超过 300 时（在里程碑收敛检查阶段检测）"
+      action: "将最早 100 章的摘要条目移入 summaries/summary_index_vol_{N}.md，主文件只保留最近内容"
+      preservation_duration: "永久"
+      recall_trigger: "回顾早期剧情或需要跨卷一致性校验时"
+
 archive_structure:
   archive_memory:
     version: "1.0"
@@ -63,6 +71,31 @@ archive_triggers:
   - event: "volume_complete"
     threshold: "卷末"
     action: "自动创建volume_snapshot，归档旧卷非关键信息"
+    volume_snapshot_structure:
+      description: "卷末快照记录以下信息，持久化至 .xushikj/timelines/volume_{N}_snapshot.json"
+      fields:
+        alive_characters:
+          source: "knowledge_base.json -> entities.characters[status != '死亡']"
+          captures:
+            - char_id
+            - name
+            - arc_stage
+            - snapshot
+        planted_foreshadowing:
+          source: "knowledge_base.json -> foreshadowing.planted[status == 'pending']"
+          captures:
+            - id
+            - description
+            - urgency
+            - planted_at_chapter
+        volume_summary:
+          source: "summaries/summary_index.md — 本卷章节区段"
+          max_length: "500字压缩概要"
+        volume_end_chapter: "本卷最后一章的章节号"
+        completed_arcs:
+          description: "本卷内完成弧光转变的角色列表"
+          source: "knowledge_base.json -> entities.characters[arc_history 最新条目.volume == N]"
+      script: "python scripts/volume_snapshot.py --project-dir . --volume {N}"
 
 recall_modes:
   # 提供给模型的调用方式

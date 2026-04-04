@@ -1,11 +1,11 @@
----
+﻿---
 name: xushikj-zhishiku
 description: |
   叙事空间创作系统·知识库模块。执行步骤7：动态实体知识库管理。
   管理和演进基于 EX3 思想的知识库。
 metadata:
-  version: 3.0.0
-  parent: opencode-xushikj-chuangzuo
+  version: 8.2.0
+  parent: narrativespace-xushikj
   steps: [7]
   triggers:
     - 初始化知识库

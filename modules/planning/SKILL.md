@@ -1,10 +1,11 @@
----
+﻿---
 name: xushikj-guihua
 description: |
   叙事空间创作系统·规划模块。执行步骤1-6和步骤11。
   从一句话概括到四页大纲的完整规划流程，以及书名简介创作。
 metadata:
-   version: 3.0.0
+  parent: narrativespace-xushikj
+   version: 8.2.0
 ---
 
 # 叙事空间创作系统 - 规划模块 (opencode)
@@ -50,8 +51,8 @@ metadata:
 | 2.5 | 世界观与力量体系设定 | `.xushikj/outline/worldview_and_system.md` | **条件触发** |
 | 3 | 人物卡片 | `.xushikj/outline/characters/` 目录，每角色独立文件 | 是 |
 | 4 | 一页大纲 | `.xushikj/outline/volume_{V}_one_page.md` | 是 |
-| 5 | 人物弧光大纲 | `.xushikj/outline/character_arcs.md` | 可选 |
-| 6 | 四页大纲 | `.xushikj/outline/volume_{V}_four_pages.md` | 可选 |
+| 5 | 人物弧光大纲 | `.xushikj/outline/character_arcs.md` | 可选（步骤4确认后须主动询问用户意愿） |
+| 6 | 四页大纲 | `.xushikj/outline/volume_{V}_four_pages.md` | 可选（步骤5完成/跳过后须主动询问用户意愿） |
 | 11 | 书名与简介 | `.xushikj/outline/title_and_synopsis.md` | **上架/发布前必须** |
 
 ### 人物卡片目录规范（步骤3）
@@ -141,7 +142,7 @@ metadata:
 3. 明确询问用户是“确认 / 修改 / 补充”
 4. 只有在用户确认后，才允许进入下一步骤
 5. 若用户要求修改，继续停留在当前步骤修订，不得自动推进
-
+> ⛔ **HARD STOP**：以上规则为系统级行为约束，任何效率理由或"用户可能已理解"的推断均不得豁免。步骤间的自动推进属于系统缺陷，而非贴心服务。步骤5、6为可选步骤，必须在用户明确选择后才能进入，沉默不等于授权。
 ### 每一步的最小询问要求
 
 为防止“开头问一次，后面全自动跑完”，每一步生成前至少补做一次针对性询问：
@@ -202,7 +203,7 @@ metadata:
 
 | 配置文件 | 用途 | 必须 |
 |----------|------|------|
-| `.xushikj/config/methodology.yaml` | 六大法则，贯穿每一步的创作指导 | 是 |
+| `.xushikj/config/methodology.yaml` | 八大法则，贯穿每一步的创作指导 | 是 |
 | `.xushikj/config/meta_rules.yaml` | 输出语言与符号标准化 | 是 |
 | `.xushikj/config/foundational_principles.yaml` | 底层创作原则 | 是 |
 | `.xushikj/config/genre_tags.yaml` | 类型标签参考（可选） | 否 |

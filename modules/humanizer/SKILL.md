@@ -1,12 +1,12 @@
----
+﻿---
 name: humanizer
 description: |
   叙事空间创作系统·去AI痕迹后处理模块。
   两层清洗策略：主规则层（R1-R7）+ 二级扫描层（24类AI痕迹模式）。
   人设回归检查 + 可选评分矩阵，不阻塞主写作循环。
 metadata:
-  version: 3.0.0
-  parent: opencode-xushikj-chuangzuo
+  version: 8.2.0
+  parent: narrativespace-xushikj
   triggers:
     - 小说去AI
     - 去AI味
@@ -74,8 +74,9 @@ metadata:
 
 1. 主规则快速清洗（R1-R7，R8按需）
 2. 二级扫描补漏（内容、语言、风格、交流痕迹）
-3. 人设回归检查（主角与高频角色口吻）
-4. 最终输出与风险标注
+3. DNA 回归校验（v8.0 新增）：若 `.xushikj/config/style_modules/dna_human_*.yaml` 存在，以 DNA 约束（DO/DON'T 列表）为基准，确认润色后文本未偏离目标风格——润色可以去AI味，但不得"洗掉"已注入的DNA风格特征
+4. 人设回归检查（主角与高频角色口吻）
+5. 最终输出与风险标注
 
 ## 二级扫描模式（来自 humanizer-zh）
 

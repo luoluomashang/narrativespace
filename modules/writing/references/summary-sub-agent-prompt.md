@@ -101,7 +101,7 @@
 ## 首次触发时的初始化
 
 - 如果 `summaries/` 目录不存在，自动创建
-- 如果 `summary_index.md` 不存在，从 `xushikj-chuangzuo` 的 `templates/summary_index_template.md` 复制
+- 如果 `summary_index.md` 不存在，从 Skill 所在目录的 `templates/summary_index_template.md` 复制（即与 `modules/` 同级的 `templates/` 文件夹）
 - 如果 `_progress.json` 不存在，创建初始版本
 
 ## summary_word_limit 取值规则

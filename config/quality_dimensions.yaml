@@ -1,6 +1,6 @@
 # =============================================================================
 # 数据化质量评估维度（番茄特化版）
-# 叙事空间创作系统 v3.0
+# 叙事空间创作系统 v7.0
 # =============================================================================
 # 与 xushikj-xiezuo/prompt.md 中八维度评分表一一对应
 # qd_01~qd_08 均为番茄商业化维度，严禁与旧版文学维度混用
@@ -75,3 +75,31 @@ veto_dimensions:
       name: "金手指即时反馈率"
       hard_floor: 1
       description: "若本章涉及金手指/系统触发，必须在同章内完成至少 1 次可见收益兑现（金手指激活却无任何反馈=章节失效）。无金手指触发则此项豁免。"
+
+# ── 张力-回报门禁（Tension-Payoff Gate）────────────────────────────────────
+# 调度引擎（orchestrator）在每次生成"爽点释放场景"之前必须读取本段。
+tension_payoff_gate:
+  description: |
+    情绪阀门：防止 AI 在铺垫不足时过早兑现爽点，导致读者情绪拉扯失效。
+    Orchestrator 在场景类型为 payoff/打脸/反杀/装逼/升级/报仇 时，必须执行此检查。
+  gate_threshold:
+    current_tension_min: 7
+    # current_tension（来自 state.json -> narrative_tension.current_tension）须 >= 7
+    # 否则判定为"铺垫不足"，执行 gate_action
+  gate_action:
+    on_fail: |
+      强制拒绝释放爽点。在本 cycle 下一章场景规划中追加 force_deepen 指令：
+      "反派压力不足。必须在正式爽点章节前追加 1 章"加深危机"场景：反派完成一次重大行动/进一步打压主角，使 current_tension 达到 >= 7 后，爽点才可落地。"
+    on_pass: |
+      允许正常生成爽点场景。爽点落地后，orchestrator 将 current_tension 重置为 2（留存背景压力），current_expectation 降低 3 点。
+  tension_update_guide:
+    increase_triggers:
+      - "反派重大挑衅或主角被压制"
+      - "新威胁登场"
+      - "资源剥夺或亲人受害"
+      - "主角阶段目标失败"
+    increase_amount: "+2 至 +3 / 次"
+    decrease_triggers:
+      - "爽点兑现（打脸/反杀/升级）"
+      - "重大危机解除"
+    decrease_amount: "重置为 2（基础背景压力）"

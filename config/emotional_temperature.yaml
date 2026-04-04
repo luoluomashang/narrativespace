@@ -1,0 +1,122 @@
+# =============================================================================
+# 情绪温度系统
+# 叙事空间创作系统 v8.0
+# =============================================================================
+# 独立于 narrative_tension（张力是剧情结构，温度是文字质感）
+# 温度控制叙事的「体温感」：冰冷的理性 vs 滚烫的情感
+# =============================================================================
+
+core_principle: |
+  tension（张力）控制"读者有多紧张"——是剧情层的结构工具。
+  temperature（温度）控制"文字有多少人味"——是文字层的质感工具。
+  两者正交：高张力+低温度=冷酷智斗；高张力+高温度=热血决战；
+  低张力+高温度=温馨日常；低张力+低温度=冷静叙事。
+
+# -----------------------------------------------------------------------------
+# 温度等级定义
+# -----------------------------------------------------------------------------
+temperature_levels:
+  cold:
+    value_range: "1-3"
+    name: "冷叙事"
+    description: "冷静客观、理性分析、克制表达"
+    applicable_scenes:
+      - "智斗/推理"
+      - "商战/政治博弈"
+      - "冷酷复仇计划"
+      - "科技/系统分析"
+    writing_effect:
+      sentence_style: "以陈述句和短句为主，少用感叹号"
+      vocabulary: "偏向精确、冷硬的动词和名词，减少情绪形容词"
+      sensory_density: "低——只保留功能性感官描写（位置、距离、光暗）"
+      narrative_distance: "远——旁观者视角，不深入角色内心"
+      dialogue_style: "精炼、机锋、信息密度高、潜台词重"
+
+  warm:
+    value_range: "4-6"
+    name: "暖叙事"
+    description: "有温度的人间烟火，真实的人际情感"
+    applicable_scenes:
+      - "角色互动/日常"
+      - "信任建立/友情"
+      - "成长反思/内心独白"
+      - "团队协作/温情"
+    writing_effect:
+      sentence_style: "长短句交错更自由，允许偶尔散文化"
+      vocabulary: "允许更多感性词汇，加入具身体验（温度/气味/触感）"
+      sensory_density: "中——每300字至少一个非视觉感官细节"
+      narrative_distance: "中——可短暂进入角色内心，展示真实想法"
+      dialogue_style: "允许废话、口头禅、不完整句、跑题，体现真实人际交流"
+
+  hot:
+    value_range: "7-10"
+    name: "滚烫叙事"
+    description: "极端情绪——愤怒/悲痛/狂喜/热恋/决死"
+    applicable_scenes:
+      - "愤怒爆发/信念捍卫"
+      - "生离死别/重大牺牲"
+      - "极致爽感爆发/降维打击"
+      - "情感告白/关系质变"
+      - "绝境翻盘/最终决战"
+    writing_effect:
+      sentence_style: "极端节奏——短到只有几个字的爆裂句和长到一口气读完的奔涌句交替"
+      vocabulary: "允许极致修辞、夸张比喻、感官过载，但必须具身化（不准抽象）"
+      sensory_density: "高——每100字至少一个感官冲击（痛感/温度/声音/气味）"
+      narrative_distance: "近——几乎意识流，读者和角色共呼吸"
+      dialogue_style: "爆裂的、断裂的、不讲逻辑的——人在极端情绪下不会好好说话"
+
+# -----------------------------------------------------------------------------
+# 温度曲线规划（章节级）
+# 在 chapter_control_card 中声明，DM/writer sub-agent 执行
+# -----------------------------------------------------------------------------
+temperature_curve:
+  description: |
+    每章在 chapter_control_card 中通过 emotional_temperature_curve 字段声明温度曲线。
+    格式为时间序列，标注关键节点的温度值和触发原因。
+  
+  example: |
+    emotional_temperature_curve:
+      - position: "opening"
+        temperature: 4
+        reason: "接续上章余温，主角刚逃出险境"
+      - position: "mid_1"
+        temperature: 3
+        reason: "冷静分析局势，制定计划"
+      - position: "mid_2"
+        temperature: 7
+        reason: "计划被识破，主角被逼到角落"
+      - position: "climax"
+        temperature: 9
+        reason: "信仰底线被触碰，爆发反击"
+      - position: "ending"
+        temperature: 5
+        reason: "战后余温，新的不安"
+
+  default_curves:
+    standard_shuang:
+      description: "标准爽文章节温度曲线"
+      pattern: [4, 3, 6, 9, 5]
+    slow_burn:
+      description: "慢热章节——压抑后爆发"
+      pattern: [2, 2, 3, 4, 9]
+    emotional_chapter:
+      description: "情感章节——持续温暖"
+      pattern: [5, 7, 6, 8, 6]
+    cold_game:
+      description: "纯智斗章节——全程冷叙事"
+      pattern: [2, 3, 2, 4, 3]
+
+# -----------------------------------------------------------------------------
+# 温度-写作约束映射（sub-agent 可直接查阅）
+# -----------------------------------------------------------------------------
+temperature_constraints:
+  general:
+    - "温度值由 orchestrator 在每回合/每段传入 DM/writer sub-agent"
+    - "sub-agent 根据当前温度值调节写作风格"
+    - "温度在一个段落内不应剧变（最多 ±2），剧变需要触发事件"
+    - "温度变化必须有叙事事件驱动，禁止无理由的情绪突变"
+
+  transition_rules:
+    cold_to_hot: "必须经过 warm 过渡，除非触发事件足够极端（如亲人当面被杀）"
+    hot_to_cold: "必须有余波段落（warm）衔接，禁止从滚烫直接跳到冰冷"
+    exception: "只有 INTERRUPT 类型的极端事件允许跨级跳变"

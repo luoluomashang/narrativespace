@@ -66,3 +66,46 @@ settings_and_professions:
   - tag: 四合院/年代文
     english: Period Drama
     description: 穿越到过去（如六七十年代的四合院），与奇葩邻居斗智斗勇，闷声发大财。
+
+# =============================================================================
+# 压扬比例参考（P1.4 新增：per-genre 压迫-兑现节奏基线）
+# =============================================================================
+# 格式：tension : payoff（每10章的理想分配比例）
+# tension = 铺垫/压迫章节数，payoff = 爽感兑现章节数，gap = 允许的最大连续压迫章节数
+tension_release_ratios:
+  爽文:
+    ratio: "3:7"
+    tension_chapters: 3
+    payoff_chapters: 7
+    max_consecutive_tension: 2
+    note: "爽文以高频兑现为核心，压迫不超过2章必须有一次爽点出口；读者耐受力低"
+  正剧:
+    ratio: "5:5"
+    tension_chapters: 5
+    payoff_chapters: 5
+    max_consecutive_tension: 3
+    note: "正剧允许3章连续铺垫，但必须伴随阶段性信息揭示维持期待感；大兑现密度更高"
+  虐恋:
+    ratio: "7:3"
+    tension_chapters: 7
+    payoff_chapters: 3
+    max_consecutive_tension: 5
+    note: "虐恋以情感折磨为卖点，允许长铺垫；但每5章必须有1次情感微兑现（不必是爽感，甜虐均可）"
+  悬疑:
+    ratio: "4:6"
+    tension_chapters: 4
+    payoff_chapters: 6
+    max_consecutive_tension: 3
+    note: "悬疑以信息揭示为兑现货币；每3章至少揭开一层谜底（可以是局部真相，不必是终极谜底）"
+  言情:
+    ratio: "4:6"
+    tension_chapters: 4
+    payoff_chapters: 6
+    max_consecutive_tension: 3
+    note: "言情以感情进展为兑现货币；甜蜜互动/关系升温均算兑现；男女主误会弧要≤3章解决"
+  default:
+    ratio: "5:5"
+    tension_chapters: 5
+    payoff_chapters: 5
+    max_consecutive_tension: 3
+    note: "未匹配具体题材时使用均衡基线"
