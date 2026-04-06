@@ -236,7 +236,9 @@
 - □ `golden_opening.yaml`（前 3 章）
 - □ `style_modules/*.yaml`
 - □ `dna_human_*.yaml`（**优先级最高**）
-- □ `human_touch_rules.yaml`（**提取 ht_01~ht_07**）
+- □ `human_touch_rules.yaml`（**提取 ht_01~ht_12**）
+- □ `global_author_dna.yaml`（v8.5 全局DNA基底层，若存在）
+- □ `style_logs/cycle_quirks.md`（v8.5 短期覆写层，若存在）
 - □ `emotional_temperature.yaml`
 - □ `bangui_modes.yaml`
 - □ `trpg_immersion.yaml`（提取 truncation_priority + decision_density + anti_proxy_rule）
@@ -302,8 +304,10 @@
    - 读取 `state.json → style_module_state.active_modules`：若列表非空，逐一加载 `.xushikj/config/style_modules/{module}.yaml`，提取规则摘要注入 `write_constraints`（优先级高于通用 style_rules.yaml）
    - 扫描 `.xushikj/config/style_modules/clone_*.yaml`：若存在，加载并注入语感克隆规则（句式节奏/词汇偏好/感官密度/情绪幅度），**优先级高于内置风格模块**
    - 扫描 `.xushikj/config/style_modules/dna_human_*.yaml`：若存在，加载并注入行文DNA可执行约束（DO/DON'T 对照表 + 标杆段落），**优先级最高，高于 clone_*.yaml 和所有内置模块**
-   - 读取 `.xushikj/config/human_touch_rules.yaml`：提取 ht_01~ht_06 六条人味注入规则摘要，注入 `write_constraints`
+   - 加载 `.xushikj/config/global_author_dna.yaml`（v8.5 全局DNA基底层）：若存在，提取全局作者偏好（词汇黑名单/句式偏好/价值观底线/节奏偏好）注入 `write_constraints` 基底层（优先级最低，被项目级规则覆写）
+   - 读取 `.xushikj/config/human_touch_rules.yaml`：提取 ht_01~ht_12 全部人味注入规则（含 v8.4 新增 ht_08~ht_12），注入 `write_constraints`
    - 读取 `.xushikj/config/emotional_temperature.yaml`：提取当前温度等级对应的写作效果约束，注入 `write_constraints`
+   - 加载 `.xushikj/style_logs/cycle_quirks.md`（v8.5 本卷短期覆写层）：若存在且非空，提取本卷临时风格覆写规则，注入 `write_constraints` **尾部**（优先级最高，覆盖一切同类规则）
    - 读取 `state.json → benchmark_state.down_weighting`：若列表非空，追加降权规则到 `write_constraints`（"以下表达模式与对标作品风格不符，请降低使用频率：{列表}"）
    - 编译为精简摘要 `write_constraints`，后续每回合只传此摘要
 
@@ -329,7 +333,7 @@
 8. **加载帮回配置**：读取 `.xushikj/config/bangui_modes.yaml` 常驻内存
 8.5. **加载跑团沉浸感配置**：读取 `.xushikj/config/trpg_immersion.yaml`，提取 `decision_density`、`decision_types`、`interrupt_system`、`consequence_preview` 配置
 8.6. **加载情绪温度配置**：读取 `.xushikj/config/emotional_temperature.yaml`，提取温度等级定义和默认曲线
-8.7. **加载人味规则**：读取 `.xushikj/config/human_touch_rules.yaml`，提取 6 条规则（ht_01~ht_06）摘要注入 `write_constraints`
+8.7. **加载人味规则**：读取 `.xushikj/config/human_touch_rules.yaml`，提取 ht_01~ht_12 全部人味注入规则（v8.4 扩展）摘要注入 `write_constraints`
 8.8. **加载行文DNA模块**（如存在）：
    - 扫描 `.xushikj/config/style_modules/dna_human_*.yaml`
    - 若存在：加载并提取 DO/DON'T 对照表 + 标杆段落 → 注入 `write_constraints`，**优先级最高，高于 clone_*.yaml 和所有内置模块**
@@ -415,6 +419,7 @@
 | "分支推演" / "让我看看两条路" / "fork" | → 跳转 FORK |
 | `帮回章节规划` | orchestrator 主进程内生成规划方案，不派发 DM sub-agent |
 | `帮回分析` / `帮回爽点分析` | orchestrator 主进程内执行诊断分析 |
+| `/style 描述` | → 跳转【交互协议：风格变异】（生成 JSON 写入 style_actions/pending_*.json） |
 | 模糊输入 | 主动追问："你要主角做什么？大致方向是正面硬刚还是迂回？" |
 
 #### 2. 更新 sensitivity（如触发帮回黑暗）
@@ -510,9 +515,12 @@
   turn_number: {当前回合数}
   user_decision: {用户本回合决策}
   bangui_context: {帮回上下文 JSON 或 null}
+  director_injection: {导演模式指令 JSON 或 null（v8.4 新增）}
+  foreshadow_whisper: {暗线伏笔指令 JSON 或 null（v8.4 新增）}
   draft_context: {滑动窗口上下文}
   accumulated_word_count: {当前累积字数}
   kb_slice: {KB 切片 JSON}
+  kb_resource_panel: {当 scene_pressure >= 6 时，追加 KB 中与当前场景相关的道具/技能/人物关系摘要，≤200字；否则为 null（v8.4 新增）}
   npc_hidden_states: {构建的 NPC 隐藏状态 JSON 或 null}
   write_constraints: {预编译摘要}
   current_sensitivity: {GREEN/YELLOW/RED}
@@ -523,7 +531,7 @@
   active_foreshadowing: {活跃伏笔}
   pacing_hint: {"free" / "wrap_up" / "cliffhanger"}
   decision_density: {"dense" / "normal" / "sparse"，由 scene_pressure 自动判定或用户手动覆盖}
-  emotional_temperature: {当前回合情绪温度值 1-10，从温度曲线或默认值获取}
+  emotional_temperature: {当前回合情绪温度值 1-10，从温度曲线或默认值获取；动态漂移后的实际值（v8.4 新增：含漂移量）}
   anchor_snippets: {最近 3 章记忆锚点文本，INIT 8.9 加载的内容或 null}
   recent_summaries: {按概要注入策略选取的历史章节摘要内容（见下方）}
 ```
@@ -787,6 +795,52 @@ raw_output = DM sub-agent 完整返回内容
 
 ---
 
+## 【交互协议：风格变异】（v8.5 新增）
+
+当用户在跑团任意阶段输入以 `/style` 开头的指令时，暂停当前回合，进入风格路由器流程。
+
+**触发格式**：
+```
+/style 描述           → project 作用域（默认）
+/style cycle 描述    → 本卷临时
+/style project 描述  → 当前项目
+/style global 描述   → 跨项目全局
+```
+
+**INTERRUPT hook（最高优先级，覆盖当前回合）**：
+
+1. 暂存当前回合状态（`turn_history` 末项标记为 `style_interrupt`）
+2. 解析作用域（cycle / project / global，默认 project）
+3. 解析用户描述 → 生成结构化动作 JSON：
+
+```json
+{
+  "scope": "project",
+  "category": "sentence_preferences",
+  "rule": "描述",
+  "weight": 100
+}
+```
+
+4. 将 JSON 写入 `.xushikj/style_actions/pending_001.json`
+5. 输出提示：
+
+```
+[风格路由器 INTERRUPT] 已暂存风格动作 → style_actions/pending_001.json
+作用域: {scope} | 类别: {category}
+规则: {rule}
+
+落盘后运行以下命令生效：
+  python scripts/update_style_rule.py --project-dir .
+
+回复"继续"恢复本回合推演。
+```
+
+6. 用户回复"继续"后，恢复 `turn_history` 末项，重新输出本回合内容
+7. 风格变更从下一章节开始生效（LANDING → MAINTENANCE 时 write_constraints 重新编译）
+
+---
+
 ## LANDING 阶段
 
 #### 🚦 阶段门禁：进入 LANDING
@@ -870,6 +924,12 @@ raw_output = DM sub-agent 完整返回内容
      - 主角情绪快照（须含具象比喻，≤30 字）
      - 下章债务（必须兑现的承诺）
    - 整锚点 ≤150 字，保存到 `.xushikj/anchors/anchor_chapter_{N}.md`
+3.6. 【v8.4 新增】**LANDING 人味增强（Prose Enhancement）**：
+   - 对 `current_chapter_draft` 执行人味密度快检（≤5秒内，不另起独立 sub-agent，在主进程内执行）：
+     - 统计 ht_08~ht_12 规则的命中次数（记忆碎片/日常宏大/哲理隐喻/间接人性/母题回响）
+     - 若命中总数 < 2：自动在 `current_chapter_draft` 尾部添加一段 ≤80 字的补强段落（从未命中的 ht 规则中随机选 1 条执行）
+     - 输出 token：`[PROSE_ENHANCE: ht={hit_count} | {'补强已添加: '+rule_id if augmented else '无需补强'}]`
+   - 补强段落要求：与前文情境自然衔接，不得另起话头，不得引入新角色
 4. **启动 maintenance agent**（参见 `references/maintenance-agent-prompt.md`）：
    - Step 0：从完整 WIP 提取 KB diff（时间轴扫描法）
    - Step 1：验证并应用 KB diff → 更新 `knowledge_base.json`
@@ -926,6 +986,40 @@ orchestrator 在主进程内生成规划方案，不派发 DM sub-agent。适用
 ### 丙类：分析诊断
 
 orchestrator 在主进程内执行分析，读取已落盘的章节文件。适用于用户想回顾和诊断已有内容。
+
+---
+
+### 丁类：导演模式（v8.4 新增）
+
+当用户输入以 `导演指令:` / `DM:` / `导演:` / `幕后:` 为前缀的文本时，触发导演模式。
+
+**解析流程**：
+1. 识别指令类型（场景注入 / NPC 控制 / 节奏 / 跳过 / 埋线）
+2. 以 `<thought>[DIRECTOR: ...]</thought>` 记录，不展示给玩家
+3. 将指令参数注入 DM sub-agent 的 `director_injection` 字段
+4. DM 正常产出本回合正文，将指令效果无缝融入
+5. 执行完成后仅在独立回复时输出 token：`[导演指令已执行: {类型}]`
+
+**约束**：
+- 导演模式不替玩家做角色决策，只改变舞台和 NPC 状态
+- 同一回合最多执行 2 条导演指令
+- `埋线` 指令生成的伏笔写入 KB 线索槽，maintenance agent 落盘时追踪兑现
+
+---
+
+### Foreshadowing Whisper（v8.4 新增）
+
+当 `*[暗线指示: {内容}]*` 出现在用户输入中时（被 `*[...]` 包裹），orchestrator 以导演视角向 DM sub-agent 传递隐性伏笔指令：
+
+```
+foreshadow_whisper = {
+  "hint": "{内容}",
+  "reveal_timing": "later",  // 不在本回合揭露
+  "kb_clue_slot": true        // 写入 KB 线索槽
+}
+```
+
+DM 将伏笔以感官细节或环境暗示的形式隐藏在正文中，不明说，不直接呼应。
 
 ---
 

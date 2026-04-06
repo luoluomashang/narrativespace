@@ -26,6 +26,13 @@ module_map:
   horror: horror.yaml
   literary: literary.yaml
 
+# v8.5 新增：全局作者DNA（跨项目持久层，最低优先级覆写基底）
+global_dna_file: "global_author_dna.yaml"
+global_dna_priority: foundation  # 基底层：低于 dna_human_*.yaml/clone_* 等所有项目级模块
+override_semantics:
+  note: "项目级 dna_human_*.yaml 中相同 category+id 规则自动覆写全局规则（项目 > 全局）"
+  priority_chain: "cycle_quirks (tail) > dna_human_*.yaml (supreme) > clone_*.yaml > style_modules > global_author_dna (foundation) > built_in_rules"
+
 # v8.0 新增：行文DNA模块（由 benchmark 模块自动生成，优先级最高）
 # dna_human_*.yaml 不在 module_map 中静态注册，而是通过通配符扫描动态加载
 # 加载优先级：dna_human_*.yaml > clone_*.yaml > module_map 中的风格模块

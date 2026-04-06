@@ -83,6 +83,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="跳过所有交互式确认，自动继续（适用于 CI / 自动化场景）",
     )
+    parser.add_argument(
+        "--global-dna-path",
+        type=Path,
+        metavar="PATH",
+        help="全局作者DNA文件路径（默认：$NARRATIVESPACE_GLOBAL_PATH → ~/.narrativespace/global_author_dna.yaml）",
+    )
     return parser
 
 
@@ -103,6 +109,9 @@ def ensure_dirs(xushikj: Path) -> None:
         "rag",
         "timelines",
         "branches",
+        "style_logs",
+        "style_actions",
+        "style_actions/processed",
     ]
     for subdir in subdirs:
         (xushikj / subdir).mkdir(parents=True, exist_ok=True)
@@ -175,6 +184,50 @@ def copy_references(xushikj: Path, force: bool) -> list[str]:
         log.append(copy_if_missing(src, dst, force, base=xushikj))
 
     return log
+
+
+def inject_global_dna(xushikj: Path, global_dna_path: Path | None, log: list[str]) -> None:
+    """处理全局作者DNA文件的路径解析、模板部署和本地副本同步。（v8.5 新增）"""
+    import os
+
+    # 路径解析优先级：--global-dna-path > NARRATIVESPACE_GLOBAL_PATH env > ~/.narrativespace/
+    if global_dna_path is not None:
+        resolved = global_dna_path
+    else:
+        env_val = os.environ.get("NARRATIVESPACE_GLOBAL_PATH")
+        if env_val:
+            resolved = Path(env_val) / "global_author_dna.yaml"
+        else:
+            resolved = Path.home() / ".narrativespace" / "global_author_dna.yaml"
+
+    local_copy = xushikj / "config" / "global_author_dna.yaml"
+
+    # 若全局文件不存在，从模板部署（首次初始化）
+    if not resolved.exists():
+        tpl = SKILL_ROOT / "templates" / "global_author_dna_template.yaml"
+        if tpl.exists():
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(tpl), str(resolved))
+            log.append(f"  [write]   全局DNA模板已部署到: {resolved}")
+        else:
+            log.append(f"  [skip]    全局DNA模板不存在，跳过全局DNA初始化: {tpl}")
+            return
+    else:
+        log.append(f"  [info]    全局DNA已存在，跳过覆盖: {resolved}")
+
+    # 同步本地副本
+    if not local_copy.exists():
+        shutil.copy2(str(resolved), str(local_copy))
+        log.append(f"  [write]   全局DNA本地副本已创建: config/global_author_dna.yaml")
+    else:
+        log.append(f"  [skip]    全局DNA本地副本已存在: config/global_author_dna.yaml")
+
+    # 部署 cycle_quirks_template.md（如果 style_logs 中没有 cycle_quirks.md）
+    cycle_quirks_tpl = SKILL_ROOT / "templates" / "cycle_quirks_template.md"
+    cycle_quirks_dst = xushikj / "style_logs" / "cycle_quirks.md"
+    if cycle_quirks_tpl.exists() and not cycle_quirks_dst.exists():
+        shutil.copy2(str(cycle_quirks_tpl), str(cycle_quirks_dst))
+        log.append(f"  [write]   本卷风格覆写模板已部署: style_logs/cycle_quirks.md")
 
 
 def sync_config(xushikj: Path, force: bool) -> list[str]:
@@ -368,6 +421,7 @@ def main() -> None:
         log.extend(copy_templates(xushikj, force=False))      # 用户数据：保留
         log.extend(copy_references(xushikj, force=True))      # 系统文件：强制更新
         log.extend(sync_config(xushikj, force=True))          # 系统文件：强制更新
+        inject_global_dna(xushikj, getattr(args, 'global_dna_path', None), log)  # v8.5
 
         # 升级补丁：向已存在的 state.json 中追加新字段（不覆盖已有字段）
         state_path = xushikj / "state.json"
@@ -571,6 +625,47 @@ def main() -> None:
                     log.append("  [patch]   state.json interactive_state 已补充 branch_registry 和 confirmed_chapter")
                     patched = True
 
+                # 补丁 18（v8.5）：required_context_files 注入 global_author_dna.yaml
+                rcf = state.get("required_context_files", {})
+                changed_18 = False
+                global_dna_entry = "config/global_author_dna.yaml"
+                if isinstance(rcf.get("always"), list) and global_dna_entry not in rcf["always"]:
+                    rcf["always"].append(global_dna_entry)
+                    changed_18 = True
+                if isinstance(rcf.get("step_10A_pipeline"), list) and global_dna_entry not in rcf["step_10A_pipeline"]:
+                    rcf["step_10A_pipeline"].append(global_dna_entry)
+                    changed_18 = True
+                if isinstance(rcf.get("step_10B_interactive"), list) and global_dna_entry not in rcf["step_10B_interactive"]:
+                    rcf["step_10B_interactive"].append(global_dna_entry)
+                    changed_18 = True
+                if changed_18:
+                    log.append("  [patch]   state.json required_context_files 已注入 global_author_dna.yaml（v8.5）")
+                    patched = True
+
+                # 补丁 19（v8.5）：注入 global_dna_state
+                if "global_dna_state" not in state:
+                    state["global_dna_state"] = {
+                        "_note": "v8.5 全局作者DNA状态追踪",
+                        "source_path": None,
+                        "injected_at": None,
+                        "rule_count": 0,
+                        "checksum": None,
+                    }
+                    log.append("  [patch]   state.json 已补充 global_dna_state 字段（v8.5 全局DNA追踪）")
+                    patched = True
+
+                # 补丁 20（v8.5）：注入 style_router_history
+                if "style_router_history" not in state:
+                    state["style_router_history"] = []
+                    log.append("  [patch]   state.json 已补充 style_router_history 字段（v8.5 风格路由历史）")
+                    patched = True
+
+                # 补丁 21（v8.5）：版本号升级到 8.5.0
+                if state.get("version", "") < "8.5.0":
+                    state["version"] = "8.5.0"
+                    log.append("  [patch]   state.json 版本号已升级到 8.5.0")
+                    patched = True
+
                 if patched:
                     state["updated_at"] = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                     with state_path.open("w", encoding="utf-8") as f:
@@ -581,6 +676,7 @@ def main() -> None:
         log.extend(copy_templates(xushikj, force))
         log.extend(copy_references(xushikj, force))
         log.extend(sync_config(xushikj, force))
+        inject_global_dna(xushikj, getattr(args, 'global_dna_path', None), log)  # v8.5
 
     print("\n文件操作详情:")
     for line in log:

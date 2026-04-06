@@ -1,10 +1,10 @@
-﻿---
+---
 name: xushikj-changjing
 description: |
   叙事空间创作系统·场景模块。执行步骤8-9：场景清单编制与场景规划。
   罗列所有场景并为每个场景规划必要信息。
 metadata:
-  version: 8.2.0
+  version: 8.4.0
   parent: narrativespace-xushikj
   steps: [8, 9]
   triggers:

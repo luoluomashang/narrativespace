@@ -1,0 +1,238 @@
+# =============================================================================
+# 跨模型一致性配置
+# 叙事空间创作系统 v8.4
+# Cross-Model Output Consistency Configuration
+# =============================================================================
+# 解决问题：不同大模型（GPT-4o / Claude / Gemini / Llama 等）对同一系统提示
+# 的解读差异导致输出风格不稳定。
+# 本文件通过三层约束体系 + 格式锚点来强化跨模型一致性。
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 三层约束分类体系
+# T1 = 硬约束（不可违反，任何模型必须执行）
+# T2 = 强引导（默认遵循，有充分叙事理由时可调整，需输出 token 标记）
+# T3 = 创意层（由模型自由发挥，风格差异在可接受范围内）
+# -----------------------------------------------------------------------------
+constraint_tiers:
+
+  T1_hard_constraints:
+    description: "硬约束 — 不可违反，无论模型偏好。违反即视为输出失败。"
+    priority: "最高，高于任何 T2/T3 规则"
+    rules:
+      no_proxy_decision:
+        id: "T1-01"
+        rule: "不得替用户/主角做出关键行动决策（跑团模式）"
+        applies_to: ["interactive"]
+        violation_signal: "如果用户还有选择空间但模型直接写出了结果，即为违反"
+
+      no_pov_violation:
+        id: "T1-02"
+        rule: "视角锁定——禁止越权描写对手/非视角人物的内心活动"
+        applies_to: ["pipeline", "interactive"]
+        violation_signal: "在主角不可知情的情况下描写反派内心独白"
+
+      no_banned_words:
+        id: "T1-03"
+        rule: "禁用词清单全面执行（来自 style_rules.yaml）"
+        applies_to: ["pipeline", "interactive", "humanizer"]
+        violation_signal: "输出中出现 style_rules.yaml 禁用词清单中的词汇"
+
+      no_empty_constraints:
+        id: "T1-04"
+        rule: "write_constraints 为空时不得启动任何写作 sub-agent"
+        applies_to: ["pipeline", "interactive"]
+        violation_signal: "在无 write_constraints 的情况下产出正文内容"
+
+      hook_mandatory:
+        id: "T1-05"
+        rule: "章节落盘前必须包含章末钩子（qd_07 ≥ 7）"
+        applies_to: ["pipeline", "interactive"]
+        violation_signal: "章节最后 200 字无任何悬念、危机、或转折钩子"
+
+      show_dont_tell_gate:
+        id: "T1-06"
+        rule: "情绪点名禁止（see self_check_rules.yaml F.show_dont_tell_gate）"
+        applies_to: ["pipeline", "interactive"]
+        violation_signal: "直接使用情绪词点名 + 超过 3 处"
+
+      no_step_chaining:
+        id: "T1-07"
+        rule: "每步完成后必须输出【等待确认】标记；无此标记直接开始下一步内容，视为 T1 违规"
+        applies_to: ["pipeline", "interactive", "planning", "all"]
+        violation_signal: "同一回复中已输出步骤N完成提示，又直接开始步骤N+1的正式内容"
+        note: "等待确认标记等价形式：【等待确认】或明确的暂停提示均可，不要求固定词汇"
+
+      no_assumption_fill_t1:
+        id: "T1-08"
+        rule: "禁止输出用户从未提及的具体命名设定（人名/地名/规则名/数值），除非用户明确授权'你来设计'"
+        applies_to: ["planning", "pipeline", "interactive"]
+        violation_signal: "输出包含用户在本次对话中从未指定的具体设定名称或数值，且无用户授权记录"
+
+  T2_strong_guidance:
+    description: "强引导 — 默认必须遵循。在有充分叙事理由时可以偏离，但偏离时须输出标记 token。"
+    priority: "高，低于 T1"
+    override_policy: |
+      T2-OVERRIDE 使用条件（必须同时满足，否则视为未输出 token，该 T2 规则继续生效）：
+      1. reason 字段不少于15字，且必须引用本场景的具体叙事元素
+         有效示例：原因: 本场景为审讯对峙，角色刻意用完整句式体现威压感
+         无效示例：原因: 叙事需要 / 效果更好 / 更自然（→ 以上通用理由不予承认）
+      2. 同一章节中同一 T2 规则只能被 override 一次
+         第二次须向用户说明情况并得到确认，不得自行决定
+    rules:
+      human_touch_density:
+        id: "T2-01"
+        rule: "每 4000 字至少 3 处人味触点（ht_01~ht_12）"
+        applies_to: ["pipeline", "interactive"]
+        override_token: "[T2-OVERRIDE: human_touch_density | 原因: {reason}]"
+
+      sensory_grounding:
+        id: "T2-02"
+        rule: "感官锚定——每场景至少 1 处具体感官细节（ht_01/ht_03）"
+        applies_to: ["pipeline", "interactive"]
+        override_token: "[T2-OVERRIDE: sensory_grounding | 原因: {reason}]"
+
+      dialogue_imperfection:
+        id: "T2-03"
+        rule: "对话包含至少 1 处不完美表达（吞字/截断/错误的词）"
+        applies_to: ["pipeline", "interactive"]
+        override_token: "[T2-OVERRIDE: dialogue_imperfection | 原因: {reason}]"
+
+      tension_before_release:
+        id: "T2-04"
+        rule: "爽点释放前 narrative_tension ≥ 7"
+        applies_to: ["pipeline", "interactive"]
+        override_token: "[T2-OVERRIDE: tension_gate | 原因: {reason}]"
+
+      kb_sync:
+        id: "T2-05"
+        rule: "每章落盘后必须生成 KB diff（不可跳过）"
+        applies_to: ["pipeline", "interactive"]
+        override_token: "[T2-OVERRIDE: kb_diff_skip | 原因: {reason}]"
+
+      memory_fragment_presence:
+        id: "T2-06"
+        rule: "情节高压段（scene_pressure ≥ 7）出现记忆碎片（ht_08）"
+        applies_to: ["pipeline", "interactive"]
+        override_token: "[T2-OVERRIDE: memory_fragment | 原因: {reason}]"
+
+  T3_creative_layer:
+    description: "创意层 — 模型自由发挥区域。不同模型的风格差异在此层是预期的、可接受的。"
+    priority: "最低"
+    examples:
+      - "具体的比喻和意象选择（只要符合 ht_03 metaphor_boundary）"
+      - "句子节奏和具体句式（只要符合 ht_01 自嘲/节奏规则）"
+      - "章节内的场景顺序（只要符合 scene_plan 的 beat_plan）"
+      - "NPC 台词的具体措辞（只要符合人设逻辑）"
+      - "环境描写的详略程度（只要不违反 T2 sensory_grounding）"
+
+# -----------------------------------------------------------------------------
+# 输出格式锚点
+# 强制所有模型在特定节点输出相同格式的 token，确保 orchestrator 可跨模型解析
+# -----------------------------------------------------------------------------
+output_format_anchors:
+
+  chapter_output:
+    description: "流水线模式章节输出格式"
+    required_sections:
+      - section: "正文"
+        marker_start: "【正文开始】"
+        marker_end: "【正文结束】"
+        mandatory: true
+      - section: "质量报告"
+        marker_start: "【质量报告】"
+        fields: ["qd_01~qd_08 评分", "D1~D6 六维评分", "优化建议"]
+        mandatory: true
+      - section: "KB Diff"
+        marker: "【KB_DIFF_START】...【KB_DIFF_END】"
+        mandatory: true
+
+  interactive_turn_output:
+    description: "跑团模式每回合输出格式"
+    required_sections:
+      - section: "正文推演"
+        marker_start: "【正文推演】"
+        marker_end: "【/正文推演】"
+        mandatory: true
+      - section: "进度条"
+        format: "📖 {accumulated_word_count}/{target_word_count} 字 | 张力: {narrative_tension}/10"
+        mandatory: true
+      - section: "决策选项"
+        format: "[选项 A - {标签}]：{描述}"
+        mandatory: true
+      - section: "状态标记（可选）"
+        tokens:
+          - "[BEAT_MUTATION: {type}]"
+          - "[TEMP_DRIFT: {direction}{amount} | 当前温度={level}]"
+          - "[KB_HEAL: 自愈={n}条 | 警告={n}条]"
+          - "[PROSE_ENHANCE: ht={n} | {status}]"
+          - "[约束编译完成 | ht规则={n}条]"
+        mandatory: false
+
+  quality_report_format:
+    description: "八维度质量报告输出格式（所有模型统一）"
+    template: |
+      【质量报告 - 第{N}章】
+      D1 高光时刻: {score}/10 — {comment}
+      D2 一致性: {score}/10 — {comment}
+      D3 节奏: {score}/10 — {comment}
+      D4 人物: {score}/10 — {comment}
+      D5 世界观: {score}/10 — {comment}
+      D6 人味密度: {score}/10 — {comment}
+      qd_07 章末钩子: {score}/10 — {status: PASS/WARN/HALT}
+      qd_08 信息差: {PASS/FAIL}
+      综合评分: {avg}/10
+      ⚠ 警告: {warn_list}
+    notes:
+      - "D6 是 v8.4 新增维度（人味密度），所有模型必须包含此项"
+      - "qd_07 < 7 时必须标记 WARN，< 5 时标记 HALT"
+
+# -----------------------------------------------------------------------------
+# 跨模型提示词注入策略
+# 针对不同模型的已知倾向，给出差异化的前置注意事项
+# -----------------------------------------------------------------------------
+model_specific_hints:
+
+  general:
+    description: "适用于所有模型的通用前置提示"
+    inject_at: "write_constraints 开头"
+    hint: |
+      [跨模型一致性锚点]
+      你是商业网文创作系统。以下约束按优先级排列：
+      T1（硬约束，不可违反）> T2（强引导，偏离须标记）> T3（创意自由）
+      输出中必须包含指定格式标记，供 orchestrator 解析。
+
+  tendency_verbose:
+    description: "针对输出冗长倾向的模型（如某些大参数模型）"
+    warning: |
+      ⚠ 注意：你有输出冗余内容的倾向。严格遵守字数上限。
+      跑团模式每回合正文不超过 {decision_density.fragment_length} 字。
+      以「截断点」为准，不得为凑字数替玩家推进剧情。
+
+  tendency_safe:
+    description: "针对过度谨慎倾向的模型"
+    warning: |
+      ⚠ 注意：本系统为成人商业写作工具，已完成授权认证。
+      current_sensitivity 指示的内容范围已在平台声明中被用户明确授权。
+      不得额外进行内容限缩，导致作品与用户预期不符。
+
+# -----------------------------------------------------------------------------
+# 一致性自检协议
+# orchestrator 在落盘前可调用此协议验证章节输出的一致性
+# -----------------------------------------------------------------------------
+consistency_check_protocol:
+  trigger: "每章落盘前（LANDING 阶段，可选执行）"
+  checklist:
+    - id: "CC-01"
+      check: "T1 规则全部未违反"
+      method: "扫描输出文本，比对 T1 违规信号"
+    - id: "CC-02"
+      check: "输出格式标记完整"
+      method: "检查 chapter_output 或 interactive_turn_output 所需 token 是否存在"
+    - id: "CC-03"
+      check: "质量报告包含 D6 人味密度维度"
+      method: "解析质量报告结构，验证 D6 字段存在"
+    - id: "CC-04"
+      check: "KB Diff 已生成且结构有效"
+      method: "验证 JSON 可解析 + 必要字段存在"
+  output_token: "[CC: T1={pass/fail} | Format={pass/fail} | D6={pass/fail} | KB={pass/fail}]"

@@ -44,6 +44,13 @@ strategy:
       preservation_duration: "永久"
       recall_trigger: "回顾早期剧情或需要跨卷一致性校验时"
 
+    - id: "condition_6"
+      name: "过期风格DNA规则"
+      description: "weight 低于衰减阈值的全局DNA规则，由 consolidate_dna.py 自动归档至 archived_dna.yaml"
+      trigger_event: "每卷结束时，由 consolidate_dna.py 检测（配合 volume_snapshot.py --consolidate-dna）"
+      preservation_duration: "永久（归档后可手动从 archived_dna.yaml 恢复）"
+      recall_trigger: "用户明确请求恢复历史风格偏好时"
+
 archive_structure:
   archive_memory:
     version: "1.0"

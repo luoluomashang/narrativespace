@@ -1,10 +1,10 @@
-﻿---
+---
 name: xushikj-xiezuo
 description: |
   叙事空间创作系统·写作模块。执行步骤10：逐章创作。
   采用 orchestrator + 2 sub-agents 架构，集成帮回辅助系统、双保险机制、质量评估。
 metadata:
-  version: 8.2.0
+  version: 8.5.0
   parent: narrativespace-xushikj
   step: 10
   triggers:

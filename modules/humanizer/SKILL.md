@@ -1,12 +1,13 @@
-﻿---
+---
 name: humanizer
 description: |
   叙事空间创作系统·去AI痕迹后处理模块。
   两层清洗策略：主规则层（R1-R7）+ 二级扫描层（24类AI痕迹模式）。
   人设回归检查 + 可选评分矩阵，不阻塞主写作循环。
 metadata:
-  version: 8.2.0
+  version: 8.4.0
   parent: narrativespace-xushikj
+  step: 11
   triggers:
     - 小说去AI
     - 去AI味

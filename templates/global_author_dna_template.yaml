@@ -1,0 +1,80 @@
+# Global Author DNA Template — 全局作者DNA模板
+# 叙事空间创作系统 v8.5
+#
+# 存储路径：~/.narrativespace/global_author_dna.yaml
+# 或通过环境变量 NARRATIVESPACE_GLOBAL_PATH 指定目录
+#
+# 本文件代表「作者基础风格底色」，跨项目持久生效。
+# 项目级 dna_human_*.yaml 中的规则可覆写本文件同类条目。
+#
+# 优先级 / Priority：
+#   基底层（foundation）— 被 dna_human_* > clone_* > 风格模块 全部覆写
+#   最高层（tail）       — 仅 cycle_quirks.md 的短期规则可以临时压制
+#
+# 用法 / Usage：
+#   1. 填写下方各类别的规则
+#   2. 运行 python scripts/init.py --project-dir . --upgrade 注入到项目
+#   3. 使用 python scripts/update_style_rule.py 增量添加新规则
+#   4. 使用 python scripts/consolidate_dna.py 定期提纯和衰减旧规则
+
+_meta:
+  schema_version: "1.0"
+  system_version: "8.5"
+  max_rules: 50          # 硬上限：超出时 consolidate_dna.py 强制归档最低权重规则
+  token_budget: 2000     # 估算 token 上限（每条规则 ~40 token），防注意力稀释
+  last_consolidated: null
+  created_at: ""
+  description: "全局作者DNA — 跨项目持久层，代表作者的基础风格底色"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# banned_words: 全局词汇黑名单
+#   补充 style_rules.yaml 中已有的项目内禁用词
+#   格式: 每条规则一个列表项，含权重衰减追踪字段
+# ──────────────────────────────────────────────────────────────────────────────
+banned_words: []
+  # 示例（取消注释后使用）:
+  # - id: "gba_001"
+  #   rule: "全局禁止使用「不得不说」「不禁感叹」等套路过渡句"
+  #   weight: 100          # 0-100，默认100；consolidate_dna.py 按使用频率衰减
+  #   last_triggered_vol: null   # 最后触发卷号（null=从未）
+  #   created_at: "2026-04-05"
+  #   trigger_count: 0           # 累计触发次数
+
+# ──────────────────────────────────────────────────────────────────────────────
+# sentence_preferences: 句式偏好
+#   喜欢的句型、节奏模式、段落结构
+# ──────────────────────────────────────────────────────────────────────────────
+sentence_preferences: []
+  # 示例:
+  # - id: "gsp_001"
+  #   rule: "长句（>20字）之后必须紧跟一句≤8字短句收尾，形成呼吸节奏"
+  #   weight: 100
+  #   last_triggered_vol: null
+  #   created_at: "2026-04-05"
+  #   trigger_count: 0
+
+# ──────────────────────────────────────────────────────────────────────────────
+# value_baselines: 价值观底线
+#   任何项目都不会违背的创作红线
+# ──────────────────────────────────────────────────────────────────────────────
+value_baselines: []
+  # 示例:
+  # - id: "gvb_001"
+  #   rule: "主角在绝境中允许妥协手段，但信念底线（保护弱者/拒绝背叛盟友）不得动摇"
+  #   weight: 100
+  #   last_triggered_vol: null
+  #   created_at: "2026-04-05"
+  #   trigger_count: 0
+
+# ──────────────────────────────────────────────────────────────────────────────
+# rhythm_preferences: 节奏偏好
+#   快慢节奏分配、感官密度、情绪曲线偏好
+# ──────────────────────────────────────────────────────────────────────────────
+rhythm_preferences: []
+  # 示例:
+  # - id: "grp_001"
+  #   rule: "每1500字至少有一段环境沉浸描写（颜色+气味+声音三维感官同时出现）"
+  #   weight: 100
+  #   last_triggered_vol: null
+  #   created_at: "2026-04-05"
+  #   trigger_count: 0

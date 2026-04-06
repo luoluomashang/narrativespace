@@ -41,6 +41,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="若快照文件已存在则覆盖",
     )
+    parser.add_argument(
+        "--consolidate-dna",
+        action="store_true",
+        help="快照写入后触发 DNA 提纯（运行 consolidate_dna.py）",
+    )
     return parser
 
 
@@ -248,6 +253,20 @@ def main() -> None:
     print(f"\n卷 {volume} 快照生成完成。")
     print(f"  下一卷开始时可通过 init.py --upgrade 应用最新补丁，")
     print(f"  并参考快照中的 alive_characters 和 planted_foreshadowing 开始跨卷规划。")
+
+    # ── v8.5 DNA 提纯（--consolidate-dna） ──────────────────────────────────
+    if args.consolidate_dna:
+        print("\n" + "=" * 60)
+        print("[info] 触发 DNA 提纯（--consolidate-dna）...")
+        try:
+            scripts_dir = Path(__file__).parent
+            sys.path.insert(0, str(scripts_dir))
+            from consolidate_dna import run_consolidation
+            run_consolidation(project_dir, current_vol=volume, dry_run=False)
+        except ImportError:
+            print("  [warn] consolidate_dna.py 未找到，请手动运行", file=sys.stderr)
+        except Exception as exc:
+            print(f"  [warn] DNA 提纯失败: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":

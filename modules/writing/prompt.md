@@ -170,6 +170,7 @@ orchestrator（~5K tokens）
 **动态风格模块加载（每章必须执行）**：
 - 读取 `state.json → style_module_state.active_modules`，若列表非空，逐一加载 `.xushikj/config/style_modules/{module}.yaml`，提取规则摘要追加到 `write_constraints`（优先级高于通用 style_rules.yaml）
 - 扫描 `.xushikj/config/style_modules/` 目录，若存在任意 `clone_*.yaml` 文件，加载并注入克隆语感规则（句式节奏/词汇偏好/感官密度），**优先级最高，高于 style_modules 内置模块**
+- 加载 `.xushikj/config/global_author_dna.yaml`（v8.5 全局DNA基底层，若存在）：提取全局作者偏好（词汇黑名单/句式偏好/价值观底线/节奏偏好）注入 `write_constraints` 基底层，优先级最低，被项目级一切规则覆写
 - 读取 `state.json → benchmark_state.down_weighting`，若列表非空，追加到 `write_constraints`："以下表达模式与对标作品风格不符，请降低使用频率：{下权词列表}"
 
 要求：每章写作前必须生成 `write_constraints`（规则摘要），并随 instruction package 一并传给写作 sub-agent。
@@ -572,13 +573,25 @@ no_repeat_info_list：
   → 若存在，加载行文DNA可执行约束（DO/DON'T 对照表 + 标杆段落）
   → 注入 write_constraints，**优先级最高，高于 clone_*.yaml 和所有内置模块**
 
-加载 .xushikj/config/human_touch_rules.yaml（v8.0 新增）：
-  → 提取 ht_01~ht_06 六条人味注入规则摘要
+加载 .xushikj/config/global_author_dna.yaml（v8.5 全局DNA基底层）：
+  → 若存在，提取全局作者偏好（词汇黑名单/句式偏好/价值观底线/节奏偏好）
+  → 注入 write_constraints 基底层（优先级最低，被一切项目级规则覆写）
+  → 若 dna_human_*.yaml 存在相同 category+id 规则，全局规则自动让位
+
+加载 .xushikj/config/human_touch_rules.yaml（v8.0 新增，v8.4 扩展）：
+  → 提取 ht_01~ht_12 全部人味注入规则摘要（含 v8.4 新增 ht_08~ht_12：记忆碎片/日常宏大/哲理隐喻/间接人性/母题回响）
   → 注入 write_constraints
+  → 编译完成后输出：`[约束编译完成 | ht规则={N}条]`
 
 加载 .xushikj/config/emotional_temperature.yaml（v8.0 新增）：
   → 根据 chapter_control_card.emotional_temperature_curve 或默认曲线，提取当前章节温度段
   → 将对应温度等级的 writing_effect 约束注入 write_constraints
+
+加载 .xushikj/style_logs/cycle_quirks.md（v8.5 本卷短期覆写层）：
+  → 若存在且 "## 本卷临时规则" 区段非空，提取本卷临时风格覆写规则
+  → 注入 write_constraints **尾部**（Prompt 最末位置，注意力权重最强）
+  → 覆写优先级：本层 > dna_human_* > clone_* > 风格模块 > global_author_dna > 内置规则
+  → 卷末由 volume_snapshot.py 自动归档并清空
 ```
 
 ### 风格切片注入说明
@@ -626,6 +639,52 @@ no_repeat_info_list：
   "narrative_tension": "state.json → narrative_tension（完整对象：current_tension / current_expectation / last_payoff_chapter，供 Self_Audit Q5 tension_payoff_gate 检查使用）"
 }
 ```
+
+---
+
+### 【交互协议：风格变异】（v8.5 新增）
+
+当用户输入以 `/style` 开头时，进入风格路由器流程（不派发写作 sub-agent）：
+
+**触发格式**：
+```
+/style 描述（默认 project 作用域）
+/style cycle 描述  → 本卷临时
+/style project 描述 → 当前项目
+/style global 描述  → 跨项目全局
+```
+
+**执行流程**：
+
+1. 解析作用域（cycle / project / global，默认 project）
+2. 解析用户描述 → 生成结构化动作 JSON：
+
+```json
+{
+  "scope": "project",
+  "category": "sentence_preferences",
+  "rule": "主角内心独白需要更口语化，允许破折号和省略号，禁止书面语感强的完整句",
+  "weight": 100
+}
+```
+
+3. 将 JSON 写入 `.xushikj/style_actions/pending_001.json`（如已存在则命名 pending_002.json 以此类推）
+4. 输出提示：
+
+```
+[风格路由器] 已生成风格动作 → style_actions/pending_001.json
+作用域: {scope} | 类别: {category}
+规则: {rule}
+
+请运行以下命令落盘：
+  python scripts/update_style_rule.py --project-dir .
+
+或在下一章开始前手动确认（系统会自动检测 pending_*.json）。
+```
+
+5. 风格变更不影响当前章节，从下一章写作时开始生效（write_constraints 重新编译时加载）
+
+6. 若想撤销：删除 `style_actions/pending_*.json` 或手动编辑对应 DNA 文件
 
 ---
 
@@ -793,6 +852,26 @@ python scripts/generate_kb_diff_template.py --project-dir . --chapter {N}
 4. `foreshadowing.planted` 与 `foreshadowing.resolved` 必须存在且为数组
 
 任一失败：停止写盘，保留旧版 KB，并输出结构错误详情。
+
+### 4.2 KB 自愈校验（v8.4 新增）
+
+对比 scene_plan 中涉及的实体变化与 kb_diff 覆盖范围：
+
+```
+1. 从 scene_plan 提取：涉及角色 + 地点 + 道具（char_IDs + loc_IDs + item_IDs）
+2. 从 kb_diff 提取：已声明变更的实体 IDs（changes 中所有 key）
+3. 差集 = scene_plan 实体 - kb_diff 实体
+4. 对差集中的每个实体：
+   - 检查正文 draft 是否存在明确引发状态变化的情节
+   - 若有明确情节：生成自愈补丁（auto_heal_patch），自动追加到 kb_diff 中对应实体
+   - 若无情节支撑：WARNING 提示"实体 {ID} 疑似遗漏更新，请确认"
+5. 输出 token：[KB_HEAL: 自愈={healed_count}条 | 警告={warn_count}条]
+```
+
+**自愈补丁规则**：
+- 仅补充 `status` 字段的增量更新（不覆盖人工填写的其他字段）
+- 自愈补丁标记 `auto_generated: true`，便于用户审计
+- 单章自愈上限：5 条（超出后停止自愈，改为 WARNING 提示全部遗漏项）
 
 ### 5. 保存
 

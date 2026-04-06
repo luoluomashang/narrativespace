@@ -13,6 +13,7 @@ rules:
   - rule_id: hook_last_200
     enabled: true
     severity: halt
+    dimension: "D1_highpoint"
     description: 章末 200 字必须出现有效钩子（危机/反转/奖励前置/系统激活/新威胁到场）。
     check:
       type: keyword_any
@@ -87,6 +88,7 @@ rules:
   - rule_id: pace_minor_twist
     enabled: true
     severity: warn
+    dimension: "D3_pacing"
     description: 每 500 字窗口至少出现一次小转折信号，避免连续平铺。
     check:
       type: window_twist_density
@@ -141,6 +143,7 @@ rules:
   - rule_id: no_coward_mc
     enabled: true
     severity: halt
+    dimension: "D4_character"
     description: 主角面对压迫时禁止连续出现窝囊退让表达。
     check:
       type: keyword_ratio_limit
@@ -258,11 +261,12 @@ rules:
       # 超过 dont_max_violations 时升级为 halt
 
   - rule_id: human_touch_density
-    enabled: true
+    enabled: false
     severity: warn
+    dimension: "D5_human_touch"
     description: |
-      人味注入密度检查（v8.0）。全章必须至少包含 2 处 ht_01~ht_06 的执行痕迹
-      （不完美注入/节奏打破/非视觉感官/内心真实化/微矛盾/距离切换）。
+      人味注入密度检查（v8.0 原版，已被 human_touch_density_v84 取代，默认禁用）。
+      保留此记录用于向后兼容，请使用 human_touch_density_v84 规则。
     check:
       type: human_touch_scan
       scope: full_chapter
@@ -348,6 +352,7 @@ rules:
   - rule_id: no_omniscient_pov
     enabled: true
     severity: halt
+    dimension: "D2_consistency"
     description: 禁止全知视角剧透句式，POV必须严格绑定视点人物感官范围。出现以下旁白式剧透句型时必须打回重写。
     check:
       type: keyword_any
@@ -487,4 +492,129 @@ rules:
       scope: state_json
       data_source: "state.json → override_contracts"
       fail_message: "检测到软规则豁免但未写入 override_contracts，请补充记录或取消豁免"
+
+  # ------------------------------
+  # F. v8.4 人味密度规则（Human Touch Density Gates）
+  # 六维审查框架 D5：人味密度
+  # ------------------------------
+  - rule_id: show_dont_tell_gate
+    enabled: true
+    severity: halt
+    dimension: "D4_character"
+    description: |
+      Show, Don't Tell 情绪标签黑名单检测（v8.4 新增）。
+      当章节中出现以下抽象情绪词且其前后 ±50 字内没有对应的
+      具体动作/微表情/物理交互/感官细节时，触发警告。
+      累计命中 3 次（而非每次都打回）触发 halt，要求重写抽象情绪段落。
+    check:
+      type: emotion_label_density
+      scope: full_chapter
+      emotion_blacklist:
+        - "感到愤怒"
+        - "感到悲伤"
+        - "感到窒息"
+        - "感到绝望"
+        - "感到恐惧"
+        - "感到喜悦"
+        - "感到震惊"
+        - "内心震撼"
+        - "内心悲痛"
+        - "情绪复杂"
+        - "百感交集"
+        - "心情沉重"
+        - "心情愉悦"
+        - "充满了愤怒"
+        - "充满了悲伤"
+        - "充满了恐惧"
+      max_abstract_emotion_without_anchor: 2
+      halt_threshold: 3
+      fail_message: |
+        发现抽象情绪标签 [{emotion}]（第 {N} 处），附近无具体动作/感官锚定。
+        请用「动作 + 微表情 + 物理交互」具象化情绪，禁止直接贴标签。
+        示例修改：「他感到愤怒」→「他的拇指指甲掐进了掌心，没有松开。」
+
+  - rule_id: human_touch_density_v84
+    enabled: true
+    severity: warn
+    dimension: "D5_human_touch"
+    description: |
+      人味注入密度检查（v8.4 升级版）。全章必须至少包含 3 处 ht_01~ht_12 的执行痕迹，
+      其中至少 1 处来自 v8.4 新规则（ht_08/ht_09/ht_10/ht_11/ht_12）。
+    check:
+      type: human_touch_scan
+      scope: full_chapter
+      min_touch_points: 3
+      min_v84_touch_points: 1
+      ht_rules_source: ".xushikj/config/human_touch_rules.yaml"
+      v84_rules: ["ht_08", "ht_09", "ht_10", "ht_11", "ht_12"]
+
+  - rule_id: memory_fragment_check
+    enabled: true
+    severity: warn
+    dimension: "D5_human_touch"
+    description: |
+      记忆碎片化检查（ht_08，v8.4）。建议每 4000 字出现至少 1 次极短记忆闪回（≤25字，感官触发）。
+      少于 1 次时告警，不强制打回。
+    check:
+      type: human_touch_scan
+      scope: full_chapter
+      ht_rule: "ht_08"
+      min_hits: 1
+      note: "仅 warn，不 halt；若章节字数 <2000 则豁免"
+
+  - rule_id: mundane_grand_contrast_check
+    enabled: true
+    severity: warn
+    dimension: "D5_human_touch"
+    description: |
+      日常-宏大对比检查（ht_09，v8.4）。warm/hot 温度章节建议至少 1 处日常细节冲撞宏大设定。
+      cold 温度章节豁免。
+    check:
+      type: human_touch_scan
+      scope: full_chapter
+      ht_rule: "ht_09"
+      min_hits: 1
+      temperature_exempt: ["cold"]
+      note: "仅 warn，不 halt"
+
+  - rule_id: indirect_humanity_check
+    enabled: true
+    severity: warn
+    dimension: "D5_human_touch"
+    description: |
+      间接人性刻画检查（ht_11，v8.4）。建议每 3000 字至少 1 处通过他人视角/误解来体现主角人性。
+      对话密集型章节豁免。
+    check:
+      type: human_touch_scan
+      scope: full_chapter
+      ht_rule: "ht_11"
+      min_hits: 1
+      note: "仅 warn，不 halt"
+
+  - rule_id: rhythm_variation_check
+    enabled: true
+    severity: warn
+    dimension: "D5_human_touch"
+    description: |
+      段落节奏波动检查（ht_02 rhythm_variation，v8.4 同步升级）。
+      全章段落长度应有明显波动：最长段与最短段字数比需 ≥ 3:1。
+      若所有段落长度均在平均值 ±30% 内，则机器感偏强，触发告警。
+    check:
+      type: paragraph_length_variance
+      scope: full_chapter
+      min_ratio_long_to_short: 3.0
+      max_uniform_ratio: 0.8
+      fail_message: "段落长度过于均匀（机器感），请主动加入极短段（≤10字）或长段（≥80字）打破节奏"
+
+  # ============================================================================
+  # 六维审查框架 — 维度标注说明（v8.4 新增，向后兼容）
+  # 各规则的 dimension: 字段标注所属审查维度，便于 orchestrator 分类报告
+  # ============================================================================
+  # D1_highpoint   = 爽点密度（hook_last_200, micro_payoff_density, first_climax_by_chapter3, goldfinger_by_chapter2）
+  # D2_consistency = 设定一致性（dna_compliance, no_omniscient_pov, no_repetitive_description）
+  # D3_pacing      = 节奏平衡（pace_minor_twist, strand_balance_check, chapter_length_control）
+  # D4_character   = 角色可信度（no_coward_mc, no_whitewash_villain, emotion_must_advance, show_dont_tell_gate）
+  # D5_human_touch = 人味密度（human_touch_density_v84, memory_fragment_check等所有新增人味规则）
+  # D6_reader_pull = 追读力（chapter_opening_hook, hook_type_variety, cliffhanger_variety, chapter_title_quality）
+  # ============================================================================
 

@@ -1,6 +1,6 @@
 # =============================================================================
 # TRPG 沉浸感配置
-# 叙事空间创作系统 v8.0
+# 叙事空间创作系统 v8.4
 # =============================================================================
 # 本配置控制跑团推演模式的沉浸感增强机制
 # 用户可在 .xushikj/config/ 中覆盖此文件
@@ -230,3 +230,97 @@ consequence_preview:
     - "至少一个选项必须是 safe，不允许所有选项都标注为 dangerous"
     - "dangerous 选项最多 1 个"
     - "只在 dense 和 normal 密度下显示后果预警，sparse 模式简化"
+
+# =============================================================================
+# v8.4 新增：动态情绪节拍突变
+# DM sub-agent 可在场景内主动触发节拍突变，打破预期情绪曲线
+# =============================================================================
+dynamic_beat_mutation:
+  enabled: true
+  description: |
+    节拍突变（Beat Mutation）允许 DM sub-agent 在以下触发条件下，对当前场景的情绪走向主动施加反向力，
+    制造「意料之外但情理之中」的情绪断层，增强沉浸感和节奏变化。
+  trigger_conditions:
+    - "连续 3 个回合情绪方向相同（纯上升 / 纯下降）→ 触发节拍突变警告"
+    - "scene_pressure 单回合下降 > 3 且当前 pacing_hint != cliffhanger → 触发突变"
+    - "用户显式输入「出乎意料」「翻转」「突变」→ 强制触发"
+  mutation_types:
+    hard_brake:
+      name: "急刹节拍"
+      description: "紧张顶峰突然转为静止/轻松，形成强对比"
+      example: "激战间隙飘来一句孩子跑丢的消息"
+    emotional_reversal:
+      name: "情绪反转"
+      description: "胜利时注入担忧，失败时注入荒诞幽默"
+      example: "主角打赢却发现自己也受了致命伤"
+    tempo_drop:
+      name: "节奏坠落"
+      description: "高速对抗场景突然转入慢镜头感官独白（≤80字）"
+      example: "刀锋停在耳边，他听见了自己的心跳"
+  constraints:
+    - "每回合最多触发一次节拍突变"
+    - "突变后必须用 [BEAT_MUTATION: {type}] 标记在 DM 产出中"
+    - "突变不改变 scene_pressure 计算（由 orchestrator 独立维护）"
+
+# =============================================================================
+# v8.4 新增：动态情绪温度漂移
+# 允许 DM sub-agent 在跑团回合内调整情绪温度，不受静态曲线约束
+# =============================================================================
+dynamic_temperature_drift:
+  enabled: true
+  description: |
+    跑团模式下，DM sub-agent 可根据用户行动结果对情绪温度实施小幅漂移。
+    与 emotional_temperature.yaml 中的静态曲线并存，漂移量叠加在曲线基线之上。
+  drift_limits:
+    per_turn: "±2（每回合最大漂移幅度）"
+    per_chapter: "±4（章内累计最大漂移量，超限后向基线收敛）"
+    override_floor: "cold（不得低于 cold 等级执行写作效果）"
+  drift_triggers:
+    positive_drift:
+      - "用户选择 dangerous 选项且成功 → +1~+2"
+      - "角色实现重大突破（KB 事件标记 breakthrough=true）→ +2"
+    negative_drift:
+      - "用户选择被动选项且失败 → -1~-2"
+      - "角色遭遇背叛 / 重大损失 → -2"
+  output_tag: "[TEMP_DRIFT: {direction}{amount} | 当前温度={level}]"
+  constraints:
+    - "DM sub-agent 不得越权修改 emotional_temperature.yaml 中的静态曲线"
+    - "漂移值仅在回合内生效；落盘后重置为基线"
+    - "orchestrator 负责将漂移后温度传入 DM sub-agent 的 write_constraints"
+
+# =============================================================================
+# v8.4 新增：行动裁决层
+# 高风险行动（☠ dangerous）执行前执行 <thought> 预检
+# =============================================================================
+action_resolution:
+  enabled: true
+  description: |
+    当用户选择或触发 ☠ dangerous 后果等级的行动时，DM sub-agent 在正式产出前
+    执行行动裁决（<thought> 预检），确保后果合理且符合世界观，防止任意无后果地化解危机。
+  pre_check_steps:
+    - step: 1
+      label: "战场状态确认"
+      check: "当前 HP/资源/位置是否允许执行该行动？"
+    - step: 2
+      label: "后果推导"
+      check: "推算成功/失败各自的直接后果（1-2 句）"
+    - step: 3
+      label: "世界观一致性"
+      check: "该行动是否与 KB 中的规则/设定冲突？"
+    - step: 4
+      label: "反派应对钩子"
+      check: "若主角成功，反派的下一步棋是什么？必须设置 counter_hook"
+  output_format: |
+    行动裁决输出格式（嵌入 DM 产出的 <thought> 块中，不展示给玩家）：
+    <thought>
+    [ACTION_RESOLUTION]
+    行动：{user_decision}
+    裁决：{成功/失败/部分成功}
+    直接后果：{1-2句}
+    反派钩子：{antagonist_counter_hook}
+    温度漂移：{drift_value}
+    </thought>
+  antagonist_hook_rules:
+    - "反派钩子必须在本回合或下一回合触发（不得无限延期）"
+    - "危险行动成功时，反派钩子强度 +1"
+    - "反派钩子不得与当前 KB 中已有悬念重复（防止悬念堆砌）"

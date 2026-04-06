@@ -1,5 +1,5 @@
 {
-  "version": "8.2.0",
+  "version": "8.5.0",
   "project_name": "",
   "created_at": "",
   "updated_at": "",
@@ -243,5 +243,13 @@
     "active_volume_file": null,
     "files": [],
     "last_updated_volume": null
-  }
+  },
+  "global_dna_state": {
+    "_note": "v8.5 全局作者DNA状态追踪",
+    "source_path": null,
+    "injected_at": null,
+    "rule_count": 0,
+    "checksum": null
+  },
+  "style_router_history": []
 }

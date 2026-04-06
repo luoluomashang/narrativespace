@@ -1,0 +1,23 @@
+# Archived DNA — 已归档风格规则
+# 叙事空间创作系统 v8.5
+#
+# 本文件由 consolidate_dna.py 自动维护。
+# 归档原因: weight_decay（权重衰减低于阈值）/ manual（手动归档）/ conflict（冲突淘汰）
+#
+# 规则可从此文件手动搬回 global_author_dna.yaml 以重新激活。
+
+_meta:
+  schema_version: "1.0"
+  system_version: "8.5"
+  description: "已归档的全局DNA规则——权重过低或冲突淘汰，可手动恢复"
+
+archived_rules: []
+  # 归档条目格式:
+  # - id: "gba_001"
+  #   category: "banned_words"   # 原始类别
+  #   rule: "..."
+  #   original_weight: 35        # 归档时的权重
+  #   archived_at: "2026-04-05"
+  #   archived_reason: "weight_decay"   # weight_decay | manual | conflict
+  #   last_triggered_vol: 3
+  #   trigger_count: 2
