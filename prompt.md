@@ -18,6 +18,7 @@
 ## 组装守门
 除 humanizer 外，进入任一步骤前都应先执行 `python scripts/assemble_prompt.py` 组装 Prompt。
 如果 Prompt 尚未组装完成，只返回命令与说明，不直接生成正式产物。
+- 若单独使用 humanizer，可执行 `python scripts/assemble_prompt.py --project-dir <目录> --step humanizer --chapter-file <章节文件>`
 
 ## 路由表
 - benchmark-lite：可选对标与风格备忘

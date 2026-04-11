@@ -7,10 +7,11 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from encoding_utils import read_json_utf8, reconfigure_stdio_utf8, write_text_utf8
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 ACTIVE_CONFIGS = [
@@ -30,26 +31,16 @@ JSON_TEMPLATES = {
     'state.json': SKILL_ROOT / 'templates' / 'state_template.json',
     'knowledge_base.json': SKILL_ROOT / 'templates' / 'kb_template.json',
 }
-
-
-def _reconfigure_stdout_utf8() -> None:
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    if hasattr(sys.stderr, 'reconfigure'):
-        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    with path.open('r', encoding='utf-8-sig') as fh:
-        return json.load(fh)
+    return read_json_utf8(path)
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    write_text_utf8(path, json.dumps(payload, ensure_ascii=False, indent=2) + '\n')
 
 
 def _merge_dict(defaults: dict[str, Any], existing: dict[str, Any]) -> dict[str, Any]:
@@ -170,7 +161,7 @@ def apply_state_overrides(xushikj_dir: Path, reply_length: int | None, target_pl
 
 
 def main() -> int:
-    _reconfigure_stdout_utf8()
+    reconfigure_stdio_utf8()
     args = build_arg_parser().parse_args()
     project_dir = args.project_dir.resolve()
     xushikj_dir = project_dir if project_dir.name == '.xushikj' else project_dir / '.xushikj'

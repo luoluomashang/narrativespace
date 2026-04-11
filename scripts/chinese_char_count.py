@@ -14,6 +14,8 @@ import re
 import sys
 from pathlib import Path
 
+from encoding_utils import reconfigure_stdio_utf8
+
 # Basic CJK Unified Ideographs range.
 ZH_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
 
@@ -22,15 +24,16 @@ def count_chinese_chars(text: str) -> int:
     return len(ZH_CHAR_RE.findall(text))
 
 
-def count_chinese_chars_in_file(path: Path, encoding: str = "utf-8") -> int:
-    return count_chinese_chars(path.read_text(encoding=encoding))
+def count_chinese_chars_in_file(path: Path, encoding: str = "utf-8-sig") -> int:
+    return count_chinese_chars(path.read_text(encoding=encoding, errors="replace"))
 
 
 def main() -> int:
+    reconfigure_stdio_utf8()
     parser = argparse.ArgumentParser(description="Count Chinese characters only")
     parser.add_argument("--input", type=Path, help="Text file path")
     parser.add_argument("--text", type=str, help="Raw text input")
-    parser.add_argument("--encoding", type=str, default="utf-8", help="Input encoding")
+    parser.add_argument("--encoding", type=str, default="utf-8-sig", help="Input encoding")
     parser.add_argument("--json", action="store_true", help="Output JSON")
     args = parser.parse_args()
 

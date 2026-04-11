@@ -22,7 +22,7 @@ metadata:
 ## 启动规则
 1. 先检查项目根目录下是否存在 `.xushikj/state.json`
 2. 若不存在，优先执行 `python scripts/init.py --project-dir <项目根目录> --yes`
-3. 在进入 planning / writing 前，必须先向用户确认两项：`reply_length`（每章最小中文字符数）与 `target_platform`
+3. 在进入 planning / scenes / writing 前，必须先向用户确认两项：`reply_length`（每章最小中文字符数）与 `target_platform`
 4. 初始化完成后，再使用 `python scripts/assemble_prompt.py` 组装当前步骤 Prompt
 5. 除 humanizer 外，所有模块都以 `.xushikj/` 为唯一运行时目录
 
@@ -41,3 +41,4 @@ metadata:
 - 每次只处理当前步骤，不自动跨步
 - 信息不足时先提问，不得擅改用户已确认设定
 - 正文写作后必须执行 `python scripts/validate_state.py --project-dir <项目根目录> --for-step 10 --chapter <N>` 做字数硬验收
+- humanizer 可通过 `python scripts/assemble_prompt.py --project-dir <目录> --step humanizer --chapter-file <章节文件>` 独立使用

@@ -11,21 +11,16 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from encoding_utils import read_json_utf8, reconfigure_stdio_utf8, subprocess_utf8_kwargs
+
 STEP_DEPENDENCIES = {
     "project_card": ["reply_length", "target_platform"],
     "7": ["project_card", "reply_length", "target_platform"],
     "8": ["volume_plan", "knowledge_base", "reply_length", "target_platform"],
     "10": ["knowledge_base", "scene_card", "summary_index", "reply_length", "target_platform"],
     # humanizer uses a named step because it is an optional post-process hook, not a numbered pipeline step.
-    "humanizer": ["chapter_file", "reply_length", "target_platform"],
+    "humanizer": ["chapter_file"],
 }
-
-
-def _reconfigure_stdout_utf8() -> None:
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    if hasattr(sys.stderr, "reconfigure"):
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
 def _resolve_xushikj_dir(project_dir: Path) -> Path:
@@ -33,8 +28,32 @@ def _resolve_xushikj_dir(project_dir: Path) -> Path:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8-sig") as fh:
-        return json.load(fh)
+    return read_json_utf8(path)
+
+
+def _resolve_humanizer_chapter_path(project_dir: Path, chapter: int | None, chapter_file: Path | None) -> Path:
+    if chapter_file is not None:
+        return chapter_file.resolve()
+
+    xushikj_dir = _resolve_xushikj_dir(project_dir.resolve())
+    if chapter is not None:
+        candidates = [
+            xushikj_dir / "chapters" / f"chapter_{chapter}.md",
+            project_dir.resolve() / "chapters" / f"chapter_{chapter}.md",
+            project_dir.resolve() / f"chapter_{chapter}.md",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return candidates[0]
+
+    state_path = xushikj_dir / "state.json"
+    if state_path.exists():
+        state = _load_json(state_path)
+        current_chapter = int(state.get("current_chapter", 1))
+        return xushikj_dir / "chapters" / f"chapter_{current_chapter}.md"
+
+    raise FileNotFoundError("Humanizer requires --chapter-file or --chapter when state.json is unavailable")
 
 
 def _count_chinese_chars_with_script(chapter_path: Path) -> int:
@@ -42,9 +61,7 @@ def _count_chinese_chars_with_script(chapter_path: Path) -> int:
     proc = subprocess.run(
         [sys.executable, str(script_path), "--input", str(chapter_path), "--json"],
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        **subprocess_utf8_kwargs(),
         check=False,
     )
     if proc.returncode != 0:
@@ -53,11 +70,35 @@ def _count_chinese_chars_with_script(chapter_path: Path) -> int:
     return int(payload.get("chinese_chars", 0))
 
 
-def validate(project_dir: Path, chapter: int | None, strict: bool, for_step: str | None, min_chapter_chars: int | None) -> int:
+def validate(
+    project_dir: Path,
+    chapter: int | None,
+    strict: bool,
+    for_step: str | None,
+    min_chapter_chars: int | None,
+    chapter_file: Path | None,
+) -> int:
     xushikj_dir = _resolve_xushikj_dir(project_dir.resolve())
     errors: list[str] = []
     warnings: list[str] = []
     infos: list[str] = []
+
+    step = for_step or ""
+    if step == "writing":
+        step = "10"
+
+    if step == "humanizer" and (chapter_file is not None or not xushikj_dir.exists()):
+        try:
+            humanizer_chapter_path = _resolve_humanizer_chapter_path(project_dir, chapter, chapter_file)
+        except FileNotFoundError as exc:
+            print(f"[ERROR] {exc}")
+            return 2
+        print(f"[validate_state] project={project_dir}")
+        print(f"[INFO] humanizer_chapter={humanizer_chapter_path}")
+        if not humanizer_chapter_path.exists():
+            print(f"[ERROR] Humanizer 缺少目标章节: {humanizer_chapter_path}")
+            return 1
+        return 0
 
     if not xushikj_dir.exists():
         print(f"[ERROR] 缺少 .xushikj 目录: {xushikj_dir}")
@@ -72,10 +113,6 @@ def validate(project_dir: Path, chapter: int | None, strict: bool, for_step: str
     infos.append(f"current_step={state.get('current_step', '')}")
     infos.append(f"current_chapter={state.get('current_chapter', 1)}")
 
-    step = for_step or ""
-    if step == "writing":
-        step = "10"
-
     kb_path = xushikj_dir / "knowledge_base.json"
     summary_path = xushikj_dir / "summaries" / "summary_index.md"
     if not kb_path.exists():
@@ -85,7 +122,7 @@ def validate(project_dir: Path, chapter: int | None, strict: bool, for_step: str
 
     effective_chapter = chapter or int(state.get("current_chapter", 1))
     scene_path = xushikj_dir / "scenes" / f"chapter_{effective_chapter}.md"
-    chapter_path = xushikj_dir / "chapters" / f"chapter_{effective_chapter}.md"
+    chapter_path = _resolve_humanizer_chapter_path(project_dir, effective_chapter, chapter_file) if step == "humanizer" else xushikj_dir / "chapters" / f"chapter_{effective_chapter}.md"
 
     dependency_checks = {
         "project_card": ((xushikj_dir / "outline" / "project_card.md").exists(), "Step 7 之前必须已有 project_card.md"),
@@ -143,14 +180,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--for-step", help="Optional target step: 7 / 8 / 10 / humanizer")
     parser.add_argument("--for-step10", action="store_true", help="Compatibility alias for --for-step 10")
     parser.add_argument("--min-chapter-chars", type=int)
+    parser.add_argument("--chapter-file", type=Path, help="Optional standalone chapter file for humanizer")
     return parser
 
 
 def main() -> int:
-    _reconfigure_stdout_utf8()
+    reconfigure_stdio_utf8()
     args = build_parser().parse_args()
     for_step = "10" if args.for_step10 and not args.for_step else args.for_step
-    return validate(args.project_dir, args.chapter, args.strict, for_step, args.min_chapter_chars)
+    return validate(args.project_dir, args.chapter, args.strict, for_step, args.min_chapter_chars, args.chapter_file)
 
 
 if __name__ == "__main__":

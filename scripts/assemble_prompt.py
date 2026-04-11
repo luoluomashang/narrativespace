@@ -7,10 +7,10 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
+from encoding_utils import read_json_utf8, read_text_utf8, reconfigure_stdio_utf8, write_text_utf8
 from kb_slicer import format_kb_slice, slice_kb
 
 try:
@@ -43,31 +43,19 @@ TEMPLATES = {
     '10': 'step_10_writing.md',
     'humanizer': 'step_humanizer.md',
 }
-
-
-def _reconfigure_stdout_utf8() -> None:
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    if hasattr(sys.stderr, 'reconfigure'):
-        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-
-
 def _read_json(path: Path) -> dict[str, Any]:
-    with path.open('r', encoding='utf-8-sig') as fh:
-        return json.load(fh)
+    return read_json_utf8(path)
 
 
 def _read_text(path: Path, default: str = EMPTY_PLACEHOLDER) -> str:
-    if not path.exists():
-        return default
-    return path.read_text(encoding='utf-8').strip() or default
+    return read_text_utf8(path, default, strip=True) or default
 
 
 def _load_yaml_or_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, Any]:
     fallback = default or {}
     if not path.exists():
         return fallback
-    raw = path.read_text(encoding='utf-8').strip()
+    raw = read_text_utf8(path, '', strip=True)
     if not raw:
         return fallback
     try:
@@ -99,7 +87,7 @@ def _load_rules(step: str) -> str:
     for filename in RULE_FILES.get(step, ['meta_rules.yaml']):
         path = CONFIG_DIR / filename
         if path.exists():
-            body = path.read_text(encoding='utf-8').strip()
+            body = read_text_utf8(path, '', strip=True)
             sections.append(f'## {filename}\n{body}')
     return '\n\n'.join(sections) if sections else '（无额外规则）'
 
@@ -303,15 +291,59 @@ def _status(project_root: Path, xushikj_dir: Path) -> str:
     ])
 
 
-def assemble(project_dir: Path, step: str, chapter: int | None) -> str:
+def _resolve_humanizer_chapter(
+    project_root: Path,
+    xushikj_dir: Path,
+    chapter: int | None,
+    chapter_file: Path | None,
+) -> tuple[Path, str]:
+    if chapter_file is not None:
+        path = chapter_file.resolve()
+        if not path.exists():
+            raise FileNotFoundError(f'Humanizer chapter file not found: {path}')
+        return path, path.stem
+
+    if chapter is not None:
+        candidates = [
+            xushikj_dir / 'chapters' / f'chapter_{chapter}.md',
+            project_root / 'chapters' / f'chapter_{chapter}.md',
+            project_root / f'chapter_{chapter}.md',
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate, f'第 {chapter} 章'
+        raise FileNotFoundError(f'Humanizer chapter file not found: {candidates[0]}')
+
+    state_path = xushikj_dir / 'state.json'
+    if state_path.exists():
+        state = _load_state(xushikj_dir)
+        chapter_no = int(state.get('current_chapter', 1))
+        chapter_path = xushikj_dir / 'chapters' / f'chapter_{chapter_no}.md'
+        if not chapter_path.exists():
+            raise FileNotFoundError(f'Humanizer chapter file not found: {chapter_path}')
+        return chapter_path, f'第 {chapter_no} 章'
+
+    raise FileNotFoundError('Humanizer requires --chapter-file or --chapter when state.json is unavailable')
+
+
+def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Path | None = None) -> str:
     project_root, xushikj_dir = _resolve_paths(project_dir)
     if step == 'status':
         return _status(project_root, xushikj_dir)
     if step not in TEMPLATES:
         raise ValueError(f'Unsupported Lite step: {step}')
+    if step == 'humanizer':
+        template = read_text_utf8(PROMPTS_DIR / TEMPLATES[step], '')
+        humanizer_chapter_path, chapter_label = _resolve_humanizer_chapter(project_root, xushikj_dir, chapter, chapter_file)
+        values = {
+            'chapter_label': chapter_label,
+            'chapter_text': _read_text(humanizer_chapter_path),
+            'rules': _load_rules(step),
+        }
+        return _render(template, values)
 
     state = _load_state(xushikj_dir)
-    template = (PROMPTS_DIR / TEMPLATES[step]).read_text(encoding='utf-8')
+    template = read_text_utf8(PROMPTS_DIR / TEMPLATES[step], '')
     project_name = _project_name(state, project_root)
     current_volume = int(state.get('current_volume', 1))
     chapter_no = chapter or int(state.get('current_chapter', 1))
@@ -362,6 +394,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--project-dir', required=True, type=Path, help='Project root or .xushikj path')
     parser.add_argument('--step', help='0 / project_card / 4 / 7 / 8 / 10 / humanizer')
     parser.add_argument('--chapter', type=int, help='Optional chapter number for step 8/10/humanizer')
+    parser.add_argument('--chapter-file', type=Path, help='Optional standalone chapter file for humanizer')
     parser.add_argument('--output', choices=['stdout', 'file'], default='stdout')
     parser.add_argument('--output-file', type=Path)
     parser.add_argument('--status', action='store_true', help='Show Lite project status')
@@ -370,17 +403,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    _reconfigure_stdout_utf8()
+    reconfigure_stdio_utf8()
     args = build_arg_parser().parse_args()
     step = 'status' if args.status else args.step
     if not step:
         raise SystemExit('--step or --status is required')
-    result = assemble(args.project_dir, step, args.chapter)
+    result = assemble(args.project_dir, step, args.chapter, args.chapter_file)
     if args.output == 'file':
         if not args.output_file:
             raise SystemExit('--output file requires --output-file')
         args.output_file.parent.mkdir(parents=True, exist_ok=True)
-        args.output_file.write_text(result + '\n', encoding='utf-8')
+        write_text_utf8(args.output_file, result + '\n')
         print(f'[assemble_prompt] wrote {args.output_file}')
     else:
         print(result)

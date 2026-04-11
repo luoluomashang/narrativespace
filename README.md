@@ -39,6 +39,12 @@ python scripts/assemble_prompt.py --project-dir /your/project --step project_car
   ```
   该脚本会调用 `scripts/chinese_char_count.py` 做最小中文字符数强校验
 
+## Humanizer 独立使用
+```bash
+python scripts/assemble_prompt.py --project-dir /your/workdir --step humanizer --chapter-file /your/workdir/chapter_1.md
+python scripts/validate_state.py --project-dir /your/workdir --for-step humanizer --chapter-file /your/workdir/chapter_1.md
+```
+
 ## 历史资产
 - 已退出 Lite 主流程的旧模板、旧配置、旧脚本会迁入 `legacy/`，避免继续污染当前运行时入口
 
