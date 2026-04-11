@@ -225,7 +225,8 @@ def _load_style_snippet(xushikj_dir: Path, scene_text: str) -> str:
     snippet_dir = xushikj_dir / 'benchmark' / 'style_snippets'
     manifest_path = snippet_dir / 'manifest.yaml'
     scene_meta = _parse_scene_fields(scene_text)
-    preferred_scene_type = scene_meta.get('scene_type', 'daily').strip().lower() or 'daily'
+    raw_scene_type = scene_meta.get('scene_type', '').strip().lower()
+    preferred_scene_type = raw_scene_type or 'daily'
     scene_intensity = scene_meta.get('scene_intensity', 'medium').strip() or 'medium'
 
     if not snippet_dir.exists():
@@ -237,7 +238,10 @@ def _load_style_snippet(xushikj_dir: Path, scene_text: str) -> str:
     selected_scene_type = preferred_scene_type
 
     if isinstance(snippets_by_type, dict):
-        for scene_type in [preferred_scene_type, 'daily']:
+        candidate_scene_types = [preferred_scene_type]
+        if preferred_scene_type != 'daily':
+            candidate_scene_types.append('daily')
+        for scene_type in candidate_scene_types:
             payload = snippets_by_type.get(scene_type, {})
             if isinstance(payload, dict):
                 files = payload.get('files', [])
