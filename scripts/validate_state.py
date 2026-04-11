@@ -1,11 +1,5 @@
 """
-validate_state.py
-
-Preflight checks for .xushikj runtime state and writing prerequisites.
-
-Usage:
-  python scripts/validate_state.py --project-dir .
-  python scripts/validate_state.py --project-dir . --chapter 3 --strict
+Validate Lite project prerequisites.
 """
 
 from __future__ import annotations
@@ -17,18 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
-ZH_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
-
-
-def _count_zh_chars(text: str) -> int:
-    return len(ZH_CHAR_RE.findall(text))
-
-
-def _resolve_xushikj_dir(project_dir: Path) -> Path:
-    if project_dir.name == ".xushikj":
-        return project_dir
-    return project_dir / ".xushikj"
+ZH_CHAR_RE = re.compile(r"[一-鿿]")
 
 
 def _reconfigure_stdout_utf8() -> None:
@@ -38,131 +21,77 @@ def _reconfigure_stdout_utf8() -> None:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
+def _count_zh_chars(text: str) -> int:
+    return len(ZH_CHAR_RE.findall(text))
+
+
+def _resolve_xushikj_dir(project_dir: Path) -> Path:
+    return project_dir if project_dir.name == ".xushikj" else project_dir / ".xushikj"
+
+
 def _load_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8-sig") as f:
-        return json.load(f)
+    with path.open("r", encoding="utf-8-sig") as fh:
+        return json.load(fh)
 
 
-def _detect_cycle_dir(scenes_root: Path, requested_cycle: str) -> tuple[str, Path | None]:
-    preferred = scenes_root / requested_cycle
-    if preferred.exists():
-        return requested_cycle, preferred
-
-    if requested_cycle == "cycle_001" and (scenes_root / "cycle_1").exists():
-        return "cycle_1", scenes_root / "cycle_1"
-    if requested_cycle == "cycle_1" and (scenes_root / "cycle_001").exists():
-        return "cycle_001", scenes_root / "cycle_001"
-
-    candidates = sorted([p for p in scenes_root.glob("cycle_*") if p.is_dir()])
-    if candidates:
-        return candidates[-1].name, candidates[-1]
-    return requested_cycle, None
-
-
-def validate(
-    project_dir: Path,
-    chapter: int | None,
-    strict: bool,
-    for_step10: bool,
-    min_chapter_chars: int | None,
-) -> int:
-    xushikj_dir = _resolve_xushikj_dir(project_dir)
+def validate(project_dir: Path, chapter: int | None, strict: bool, for_step: str | None, min_chapter_chars: int | None) -> int:
+    xushikj_dir = _resolve_xushikj_dir(project_dir.resolve())
     errors: list[str] = []
     warnings: list[str] = []
     infos: list[str] = []
 
     if not xushikj_dir.exists():
-        print(f"[ERROR] .xushikj 目录不存在: {xushikj_dir}")
+        print(f"[ERROR] 缺少 .xushikj 目录: {xushikj_dir}")
         return 2
 
     state_path = xushikj_dir / "state.json"
     if not state_path.exists():
-        print(f"[ERROR] state.json 不存在: {state_path}")
+        print(f"[ERROR] 缺少 state.json: {state_path}")
         return 2
 
-    try:
-        state = _load_json(state_path)
-    except json.JSONDecodeError as exc:
-        print(
-            f"[ERROR] state.json JSON 损坏: line={exc.lineno}, col={exc.colno}, msg={exc.msg}",
-            file=sys.stderr,
-        )
-        return 2
-    except OSError as exc:
-        print(f"[ERROR] 读取 state.json 失败: {exc}", file=sys.stderr)
-        return 2
+    state = _load_json(state_path)
+    infos.append(f"current_step={state.get('current_step', '')}")
+    infos.append(f"current_chapter={state.get('current_chapter', 1)}")
 
-    writing_mode = str(state.get("config", {}).get("writing_mode", "pipeline"))
-    if writing_mode not in {"pipeline", "interactive"}:
-        warnings.append(f"config.writing_mode 非法值: {writing_mode}（建议 pipeline 或 interactive）")
-
-    if for_step10 and chapter is None:
-        errors.append("--for-step10 模式下必须提供 --chapter。")
-
-    cycle_id = str(state.get("rolling_context", {}).get("cycle_id", "cycle_1"))
-    scenes_root = xushikj_dir / "scenes"
-    effective_cycle_id, cycle_dir = _detect_cycle_dir(scenes_root, cycle_id)
-    if cycle_dir is None:
-        errors.append(f"未找到场景目录: {scenes_root}/cycle_*")
-    else:
-        infos.append(f"cycle_id={cycle_id}, effective_cycle={effective_cycle_id}")
-        scene_list = cycle_dir / "scene_list.md"
-        scene_plans_dir = cycle_dir / "scene_plans"
-        if not scene_list.exists():
-            warnings.append(f"缺少 scene_list: {scene_list}")
-        if not scene_plans_dir.exists():
-            errors.append(f"缺少 scene_plans 目录: {scene_plans_dir}")
-        elif chapter is not None:
-            scene_plan = scene_plans_dir / f"chapter_{chapter}.md"
-            if not scene_plan.exists():
-                errors.append(f"缺少 chapter scene plan: {scene_plan}")
-            else:
-                scene_text = scene_plan.read_text(encoding="utf-8")
-                if "scene_type" not in scene_text:
-                    errors.append(f"scene_plan 缺少 scene_type 字段: {scene_plan}")
+    step = for_step or ""
+    if step == "writing":
+        step = "10"
 
     kb_path = xushikj_dir / "knowledge_base.json"
+    summary_path = xushikj_dir / "summaries" / "summary_index.md"
     if not kb_path.exists():
         warnings.append(f"缺少知识库: {kb_path}")
+    if not summary_path.exists():
+        warnings.append(f"缺少摘要索引: {summary_path}")
 
-    snippet_dir = xushikj_dir / "benchmark" / "style_snippets"
-    snippet_files = sorted(snippet_dir.glob("*.md")) if snippet_dir.exists() else []
-    if not snippet_files:
-        warnings.append(
-            "未检测到 style_snippets（需先执行 write-snippet 才会注入 style_snippet）"
-        )
+    effective_chapter = chapter or int(state.get("current_chapter", 1))
+    scene_path = xushikj_dir / "scenes" / f"chapter_{effective_chapter}.md"
+    chapter_path = xushikj_dir / "chapters" / f"chapter_{effective_chapter}.md"
 
-    style_modules_dir = xushikj_dir / "config" / "style_modules"
-    dna_files = sorted(style_modules_dir.glob("dna_human_*.yaml")) if style_modules_dir.exists() else []
-    clone_files = sorted(style_modules_dir.glob("clone_*.yaml")) if style_modules_dir.exists() else []
-    if not dna_files and not clone_files:
-        warnings.append(
-            "未检测到 DNA 约束文件（dna_human_*.yaml / clone_*.yaml），Step10 将缺少 dna_constraints"
-        )
-
-    if for_step10:
+    if step == "7" and not (xushikj_dir / "outline" / "project_card.md").exists():
+        errors.append("Step 7 之前必须已有 project_card.md")
+    if step == "8":
+        if not (xushikj_dir / "outline" / f"volume_{state.get('current_volume', 1)}_one_page.md").exists():
+            errors.append("Step 8 之前必须已有当前卷一页纲")
         if not kb_path.exists():
-            errors.append(f"Step10 缺少知识库: {kb_path}")
-        if not snippet_files:
-            errors.append("Step10 缺少 style_snippets，禁止继续写作。")
-        if not dna_files and not clone_files:
-            errors.append("Step10 缺少 DNA 约束文件，禁止继续写作。")
+            errors.append("Step 8 之前必须已有 knowledge_base.json")
+    if step == "10":
+        if not kb_path.exists():
+            errors.append("Step 10 缺少 knowledge_base.json")
+        if not scene_path.exists():
+            errors.append(f"Step 10 缺少章节卡: {scene_path}")
+        if not summary_path.exists():
+            errors.append("Step 10 缺少 summary_index.md")
+    if step == "humanizer" and not chapter_path.exists():
+        errors.append(f"Humanizer 缺少目标章节: {chapter_path}")
 
-    if chapter is not None and min_chapter_chars is not None:
-        chapter_file = xushikj_dir / "chapters" / f"chapter_{chapter}.md"
-        if not chapter_file.exists():
-            errors.append(f"章节文件不存在，无法校验字数: {chapter_file}")
-        else:
-            text = chapter_file.read_text(encoding="utf-8")
-            zh_count = _count_zh_chars(text)
-            infos.append(f"chapter_{chapter} 中文字数={zh_count}")
-            if zh_count < min_chapter_chars:
-                errors.append(
-                    f"chapter_{chapter} 中文字数不足：{zh_count} < {min_chapter_chars}"
-                )
+    if chapter_path.exists() and min_chapter_chars is not None:
+        zh_chars = _count_zh_chars(chapter_path.read_text(encoding="utf-8"))
+        infos.append(f"chapter_{effective_chapter}_zh_chars={zh_chars}")
+        if zh_chars < min_chapter_chars:
+            errors.append(f"chapter_{effective_chapter} 中文字数不足：{zh_chars} < {min_chapter_chars}")
 
     print(f"[validate_state] project={project_dir}")
-    print(f"[validate_state] mode={writing_mode}")
     for msg in infos:
         print(f"[INFO] {msg}")
     for msg in warnings:
@@ -178,38 +107,22 @@ def validate(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Validate .xushikj state and writing prerequisites")
-    p.add_argument("--project-dir", required=True, type=Path, help="Project root or .xushikj path")
-    p.add_argument("--chapter", type=int, help="Optional chapter number for scene plan existence check")
-    p.add_argument(
-        "--strict",
-        action="store_true",
-        help="Treat warnings as failures (exit code 1)",
-    )
-    p.add_argument(
-        "--for-step10",
-        action="store_true",
-        help="Enable Step10 hard checks (scene/kb/snippet/dna required)",
-    )
-    p.add_argument(
-        "--min-chapter-chars",
-        type=int,
-        help="Optional minimum Chinese character count check for chapter file",
-    )
-    return p
+    parser = argparse.ArgumentParser(description="Validate narrativespace Lite state")
+    parser.add_argument("--project-dir", required=True, type=Path)
+    parser.add_argument("--chapter", type=int)
+    parser.add_argument("--strict", action="store_true")
+    parser.add_argument("--for-step", help="Optional target step: 7 / 8 / 10 / humanizer")
+    parser.add_argument("--for-step10", action="store_true", help="Compatibility alias for --for-step 10")
+    parser.add_argument("--min-chapter-chars", type=int)
+    return parser
 
 
 def main() -> int:
     _reconfigure_stdout_utf8()
     args = build_parser().parse_args()
-    return validate(
-        project_dir=args.project_dir,
-        chapter=args.chapter,
-        strict=args.strict,
-        for_step10=args.for_step10,
-        min_chapter_chars=args.min_chapter_chars,
-    )
+    for_step = "10" if args.for_step10 and not args.for_step else args.for_step
+    return validate(args.project_dir, args.chapter, args.strict, for_step, args.min_chapter_chars)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

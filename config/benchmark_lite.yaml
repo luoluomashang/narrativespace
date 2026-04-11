@@ -1,0 +1,12 @@
+version: 11.0.0
+benchmark_lite:
+  goals:
+    - 提炼题材节奏、叙事气质、章节钩子偏好
+    - 允许保留少量风格切片作为写作参考
+  outputs:
+    - 风格备忘录
+    - 可选场景风格片段
+  constraints:
+    - 不做 DNA 提取
+    - 不做 clone prompt
+    - 不依赖全局 style library

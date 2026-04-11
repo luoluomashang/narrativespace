@@ -1,7 +1,5 @@
 """
-kb_slicer.py
-
-Builds a compact knowledge-base slice for the current chapter context.
+Lite KB slicer.
 """
 
 from __future__ import annotations
@@ -12,85 +10,62 @@ from typing import Any
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8-sig") as f:
-        return json.load(f)
+    with path.open("r", encoding="utf-8-sig") as fh:
+        return json.load(fh)
 
 
-def slice_kb(
-    kb_path: Path,
-    character_ids: list[str] | None = None,
-    location_ids: list[str] | None = None,
-    include_foreshadowing: bool = True,
-) -> dict[str, Any]:
-    """Return a reduced KB payload for prompt injection."""
-    character_ids = character_ids or []
-    location_ids = location_ids or []
-
+def slice_kb(kb_path: Path, focus_names: list[str] | None = None) -> dict[str, Any]:
     kb = _read_json(kb_path)
-    entities = kb.get("entities", {})
+    focus_names = [name.strip() for name in (focus_names or []) if name.strip()]
 
-    all_chars = entities.get("characters", {}) if isinstance(entities, dict) else {}
-    selected_chars = {
-        cid: all_chars[cid]
-        for cid in character_ids
-        if isinstance(all_chars, dict) and cid in all_chars
+    characters = kb.get("characters", [])
+    if not isinstance(characters, list):
+        characters = []
+
+    if focus_names:
+        selected_characters = [
+            item for item in characters
+            if isinstance(item, dict) and str(item.get("name", "")).strip() in focus_names
+        ]
+    else:
+        selected_characters = [item for item in characters if isinstance(item, dict)][:5]
+
+    selected_ids = {
+        str(item.get("id", ""))
+        for item in selected_characters
+        if isinstance(item, dict)
     }
-
-    all_locs = entities.get("locations", {}) if isinstance(entities, dict) else {}
-    selected_locs = {
-        lid: all_locs[lid]
-        for lid in location_ids
-        if isinstance(all_locs, dict) and lid in all_locs
-    }
-
-    all_items = entities.get("items", {}) if isinstance(entities, dict) else {}
-    selected_items = {}
-    if isinstance(all_items, dict):
-        for item_id, item in all_items.items():
-            owner = str(item.get("current_owner", "")) if isinstance(item, dict) else ""
-            if owner and owner in character_ids:
-                selected_items[item_id] = item
 
     relationships = kb.get("relationships", [])
-    selected_relationships: list[dict[str, Any]] = []
-    if isinstance(relationships, list):
-        for rel in relationships:
-            if not isinstance(rel, dict):
-                continue
-            a = str(rel.get("entity_a", ""))
-            b = str(rel.get("entity_b", ""))
-            if a in character_ids or b in character_ids:
-                selected_relationships.append(rel)
+    if not isinstance(relationships, list):
+        relationships = []
+    selected_relationships = [
+        item for item in relationships
+        if isinstance(item, dict)
+        and (
+            str(item.get("source", "")) in selected_ids
+            or str(item.get("target", "")) in selected_ids
+        )
+    ][:10]
 
-    foreshadowing = {}
-    if include_foreshadowing:
-        all_foreshadowing = kb.get("foreshadowing", {})
-        planted = []
-        if isinstance(all_foreshadowing, dict):
-            planted = [
-                x
-                for x in all_foreshadowing.get("planted", [])
-                if isinstance(x, dict) and x.get("status") == "pending"
-            ]
-        foreshadowing = {"planted": planted[:10]}
+    world_rules = kb.get("world_rules", [])
+    if not isinstance(world_rules, list):
+        world_rules = []
 
-    timeline = kb.get("timeline", [])
-    timeline_tail = timeline[-5:] if isinstance(timeline, list) else []
+    open_loops = kb.get("open_loops", [])
+    if not isinstance(open_loops, list):
+        open_loops = []
 
     return {
-        "characters": selected_chars,
-        "locations": selected_locs,
-        "items": selected_items,
+        "project": kb.get("project", {}),
+        "characters": selected_characters,
         "relationships": selected_relationships,
-        "foreshadowing": foreshadowing,
-        "timeline_tail": timeline_tail,
-        "style_profile": kb.get("style_profile", {}),
+        "world_rules": world_rules[:5],
+        "current_volume": kb.get("current_volume", {}),
+        "open_loops": open_loops[:8],
     }
 
 
-def format_kb_slice(kb_slice: dict[str, Any], max_chars: int = 3500) -> str:
-    """Serialize KB slice for prompt injection with a safe length cap."""
+def format_kb_slice(kb_slice: dict[str, Any], max_chars: int = 3000) -> str:
     text = json.dumps(kb_slice, ensure_ascii=False, indent=2)
-    if len(text) <= max_chars:
-        return text
-    return text[: max_chars - 3] + "..."
+    return text if len(text) <= max_chars else text[: max_chars - 3] + "..."

@@ -1,36 +1,41 @@
-﻿---
-name: narrativespace-xushikj
-description: 叙事空间创作系统（一体化版）精简入口。保留模块化能力，通过脚本化编排按步骤投喂提示词。
+---
+name: narrativespace-lite
+description: Lite 版叙事空间创作系统。以 project_card → 卷纲 → 轻量 KB → 章节卡 → 正文写作为主线，benchmark-lite 与 humanizer 为可选外挂。
 metadata:
-  version: 10.0.0
-  edition: unified-lite
-  skills_included: 8
+  version: 11.0.0
+  edition: lite
+  architecture: 4+2
   triggers:
     - 叙事空间
     - 网文创作
-    - 商业小说
+    - 小说编排
 ---
 
-# 叙事空间创作系统（精简版）
+# 叙事空间 Lite
 
 ## 定位
-统一路由入口，负责把用户请求分发到对应模块，不承载全量执行细则。
+这是一个可直接落地的 Lite 创作 Skill：
+- 核心 4 模块：planning / knowledge-base / scenes / writing
+- 可选 2 模块：benchmark-lite / humanizer
+- 默认只围绕“当前卷、当前章、最近记忆”展开，不再承载旧版重型状态机
 
-## 启动行为
-- 启动时优先检查项目根目录下是否存在 `.xushikj/state.json`。
-- 若不存在且当前为代理模式（具备工具权限），应自动执行 `scripts/init.py` 完成初始化。
-- 若不存在且当前仅为普通聊天模式，则提示用户先初始化；除 `humanizer` 外不进入其他模块。
+## 启动规则
+1. 先检查项目根目录下是否存在 `.xushikj/state.json`
+2. 若不存在，优先执行 `python scripts/init.py --project-dir <项目根目录> --yes`
+3. 初始化完成后，再使用 `python scripts/assemble_prompt.py` 组装当前步骤 Prompt
+4. 除 humanizer 外，所有模块都以 `.xushikj/` 为唯一运行时目录
 
-## 模块
-- benchmark: 步骤0 对标分析
-- planning: 快速立项、步骤4（一页大纲）、步骤11（书名简介）
-- knowledge-base: 步骤7 知识库
-- scenes: 步骤8-9 场景
-- writing: 步骤10A 流水线写作
-- interactive: 步骤10B 互动写作
-- humanizer: 后处理
+## 主流程
+1. Step 0（可选） benchmark-lite
+2. Step project_card 立项
+3. Step 4 当前卷一页纲
+4. Step 7 轻量知识库初始化/更新
+5. Step 8 当前章或未来 1~3 章章节卡
+6. Step 10 正文写作
+7. humanizer（可选）发布前润色
 
-## 使用建议
-- 规则与上下文由脚本按步骤组装（scripts/assemble_prompt.py）。
-- 模型一次只处理当前步骤的必要约束，避免全量规则过载。
-- 历史长版说明见 SKILL_legacy.md。
+## 边界
+- 不包含 interactive/TRPG 主流程
+- 不依赖 DNA、Layer-2、复杂 diff、RAG、世界状态机
+- 每次只处理当前步骤，不自动跨步
+- 信息不足时先提问，不得擅改用户已确认设定
