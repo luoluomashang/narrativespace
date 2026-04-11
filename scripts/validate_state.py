@@ -13,7 +13,6 @@ from typing import Any
 
 STEP_DEPENDENCIES = {
     "project_card": ["reply_length", "target_platform"],
-    # Step 7 is the knowledge-base initialization step in the Lite pipeline.
     "7": ["project_card", "reply_length", "target_platform"],
     "8": ["volume_plan", "knowledge_base", "reply_length", "target_platform"],
     "10": ["knowledge_base", "scene_card", "summary_index", "reply_length", "target_platform"],

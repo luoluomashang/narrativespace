@@ -23,6 +23,7 @@ SKILL_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = SKILL_ROOT / 'templates' / 'prompts'
 CONFIG_DIR = SKILL_ROOT / 'config'
 MAX_FOCUS_NAMES = 6
+EMPTY_PLACEHOLDER = '（暂无）'
 
 RULE_FILES = {
     '0': ['meta_rules.yaml', 'benchmark_lite.yaml'],
@@ -56,7 +57,7 @@ def _read_json(path: Path) -> dict[str, Any]:
         return json.load(fh)
 
 
-def _read_text(path: Path, default: str = '（暂无）') -> str:
+def _read_text(path: Path, default: str = EMPTY_PLACEHOLDER) -> str:
     if not path.exists():
         return default
     return path.read_text(encoding='utf-8').strip() or default
@@ -141,8 +142,8 @@ def _compress_memory_hint(line: str, limit: int = 42) -> str:
 
 
 def _compress_summary_index(summary_text: str) -> str:
-    if summary_text in {'', '（暂无）'}:
-        return '（暂无）'
+    if summary_text in {'', EMPTY_PLACEHOLDER}:
+        return EMPTY_PLACEHOLDER
 
     lines = summary_text.splitlines()
     sections: list[tuple[str, list[str]]] = []
@@ -161,7 +162,7 @@ def _compress_summary_index(summary_text: str) -> str:
         sections.append((current_title, current_lines))
 
     if not sections:
-        return '\n'.join(lines[-20:]).strip() or '（暂无）'
+        return '\n'.join(lines[-20:]).strip() or EMPTY_PLACEHOLDER
 
     rendered: list[str] = []
     for title, body_lines in sections:
@@ -181,8 +182,8 @@ def _compress_summary_index(summary_text: str) -> str:
                 continue
         if title:
             rendered.append(title)
-        rendered.extend(body or ['- （暂无）'])
-    return '\n'.join(rendered).strip() or '（暂无）'
+        rendered.extend(body or [f'- {EMPTY_PLACEHOLDER}'])
+    return '\n'.join(rendered).strip() or EMPTY_PLACEHOLDER
 
 
 def _extract_focus_names(scene_text: str) -> list[str]:
