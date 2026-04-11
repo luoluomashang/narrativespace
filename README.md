@@ -1,6 +1,6 @@
-# 叙事空间创作系统 v8.5 — 快速参考指南
+# 叙事空间创作系统 v10.0 — 快速参考指南
 
-> **版本**：8.5.0 | **最后更新**：2025-07-17 | **适用平台**：番茄小说网（男频商业网文）
+> **版本**：10.0.0 | **最后更新**：2026-04-10 | **适用平台**：番茄小说网（男频商业网文）
 >
 > 完整使用说明请参阅 [使用手册.md](使用手册.md)。
 
@@ -41,10 +41,74 @@ python narrativespace-xushikj/scripts/init.py --project-dir /your/project/path
 | 升级 | `python init.py --project-dir . --upgrade` | 升级版本，保留用户数据 |
 | 强制 | `python init.py --project-dir . --force` | 重置项目（**慎用，覆盖数据**）|
 | 自动 | `python init.py --project-dir . --yes` | 跳过所有交互确认 |
+| 绑定作者 | `python init.py --project-dir . --link-author 作者名` | 绑定全局风格切片库作者 |
 
 4. **重启 Claude Code**
 
 开一个新对话，输入 "叙事空间" 或 "写网文" 即可开始。
+
+---
+
+## 二阶段执行模式（新增）
+
+从二阶段开始，推荐使用「脚本编排 + 小规则集注入」模式，而不是把全量规则一次性塞给模型。
+
+### 什么时候执行
+
+二阶段执行模式分为两层：
+
+1. **日常创作层**：当二阶段改造完成后，用户在实际写书时，每次进入某个步骤前执行。例如进入步骤1规划、步骤10写作前，先由脚本组装当前步骤 Prompt，再把结果交给模型执行。
+
+### 由谁执行
+
+1. **普通聊天模式**：若当前环境只有普通对话能力、没有工具权限，则需要用户自己执行脚本。
+2. **代理模式（如 Claude Code / VS Code Agent）**：若当前环境提供终端和文件工具权限，代理可以代替用户执行 Python 脚本、读取结果并继续下一步。
+3. **更准确的边界**：不是“模型永远不能执行脚本”，而是“是否能执行脚本取决于宿主环境是否授予工具权限”。
+
+### 与用户确认的关系
+
+1. 日常创作层：每完成一个步骤或阶段性动作后，仍应等待用户确认，再推进到下一步骤；不得自动跨步。
+2. 即使在代理模式下，代理也应承担“执行者”角色，用户主要承担“确认者”和“创作决策者”角色。
+
+### 核心变化
+
+1. 保留现有 Skill 架构
+2. 每一步由 `scripts/assemble_prompt.py` 组装 Prompt
+3. 规则改为按步骤小集合注入（2K-3K tokens 级别）
+4. 每阶段执行完必须先自查，再进行用户确认
+
+
+### 常用命令
+
+```bash
+# 查看项目状态
+python narrativespace/scripts/assemble_prompt.py --project-dir .xushikj --status
+
+# 写作前预检（Step10 强校验 + 字数门禁）
+python narrativespace/scripts/validate_state.py --project-dir . --for-step10 --chapter 1 --min-chapter-chars 2500 --strict
+
+# 组装快速立项提示词（v10.0 新起点）
+python narrativespace/scripts/assemble_prompt.py --project-dir .xushikj --step project_card --output file --output-file .xushikj/drafts/project_card_prompt.md
+
+# 组装步骤10提示词（写作，显式声明模式）
+python narrativespace/scripts/assemble_prompt.py --project-dir .xushikj --step 10 --chapter 12 --writing-mode pipeline --output file --output-file .xushikj/drafts/ch12_prompt.md
+
+# 推进步骤（按 v10.0 序列：project_card→4→7→8→9→10→11）
+python narrativespace/scripts/assemble_prompt.py --project-dir .xushikj --advance
+
+# 流程门禁回归测试（推荐改造后执行一次）
+python narrativespace/scripts/regression_workflow_guards.py --project-dir .xushikj --good-chapter 1 --bad-chapter 999 --min-chapter-chars 2500
+```
+
+### 风格切片落盘（Step 0 后必做）
+
+`slice_library.py` 主流程只负责 Step 0（量化分析 + chapter map），不会自动写入切片内容。
+完成 Step 1/2 的 LLM 选片后，必须执行以下命令落盘：
+
+```bash
+python narrativespace/scripts/slice_library.py write-snippet --project-dir . --scene-type daily --content-file snippet_daily.md
+python narrativespace/scripts/slice_library.py write-dna --project-dir . --project-name my_project --dna-json dna_profile.json
+```
 
 ---
 
@@ -86,25 +150,22 @@ python narrativespace-xushikj/scripts/init.py --project-dir /your/project/path
                            └──────────────┘
 ```
 
-### 十二步工作流
+### v10.0 精简工作流（7步）
+
+> **v10.0 变更**：原12步精简为7步。步骤1/2/2.5/3/5/6 合并为「快速立项`project_card`」，一次访谈完成立项。
 
 | 步 | 模块 | 描述 | 输入 | 输出 |
 |----|------|------|------|------|
-| **0** | benchmark | 对标作品学习（可选）| 1-3部对标作品 | benchmark_analysis.md + style_profile.yaml |
-| **1** | planning | 一句话概括 | 题材/主角 | one_sentence.md |
-| **2** | planning | 当前卷落点 + 长程司南 | 核心设定 | north_star.md |
-| **2.5** | planning | 世界观与力量金手指体系 | 故事类型 | worldview_and_system.md |
-| **3** | planning | 人物设定（双轨弧光）| 核心冲突 | characters.md |
-| **4** | planning | 当前卷一页大纲 | 人物卡 | volume_{V}_one_page.md |
-| **5** | planning | 人物弧光路线 | 一页大纲 | character_arcs.md |
-| **6** | planning | 四页大纲（含伏笔）| 弧光分析 | volume_{V}_four_pages.md |
-| **7** | knowledge-base | KB初始化 | 四页大纲 | knowledge_base.json |
-| **8** | scenes | 场景清单（cycle单位）| 大纲 | scene_list.md |
-| **9** | scenes | 场景详细规划 | 场景清单 | scene_plan.md |
-| **10A** | writing | 流水线写作 | 场景规划 | 章节 + KB diff + 锚点 + 质量报告 |
-| **10B** | interactive | 互动跑团写作 | 用户指示 | 章节（迭代落盘）|
-| **11** | planning | 书名与简介 | 完成稿 | title_and_blurb.md |
-| **后** | humanizer | 去AI痕迹 | 原稿 | 去AI版本 + DNA回归校验 |
+| **0** | benchmark | 对标作品学习（可选）| 1-3部对标作品 | style_report.md + style_library/ |
+| **project_card** | planning | 快速立项（1-2轮访谈）| 题材/创意 | outline/project_card.md |
+| **4** | planning | 当前卷一页大纲 | 立项卡 | outline/volume_{V}_one_page.md |
+| **7** | knowledge-base | KB初始化 | 立项卡 + 大纲 | knowledge_base.json |
+| **8** | scenes | 场景清单 | 一页大纲 | scenes/{cycle}/scene_list.md |
+| **9** | scenes | 章节场景规划 | 场景清单 | scenes/{cycle}/scene_plans/*.md |
+| **10A** | writing | 流水线写作 | 场景卡 | chapters/chapter_*.md |
+| **10B** | interactive | 互动跑团写作 | 用户指示 | drafts/session_*.md |
+| **11** | planning | 书名与简介 | 完成稿 | outline/title_and_synopsis.md |
+| **后** | humanizer | 去AI痕迹 | 原稿 | 去AI版本 |
 
 ---
 
@@ -139,18 +200,27 @@ python narrativespace-xushikj/scripts/init.py --project-dir /your/project/path
 | **卷级时间线里程碑追踪** | volume_N_timeline.json 记录里程碑/弧线端点/伏笔热度图，逾期自动注入警告 |
 | **叙述者口吻人格化** | humanizer 新增 ht_07 规则，统一叙述者语气风格 |
 
+### v10.0 新增
+
+| 功能 | 说明 |
+|------|------|
+| **规划流程精简** | 原步骤1/2/2.5/3/5/6 合并为一步 `快速立项(project_card)`，1-2轮访谈完成立项 |
+| **风格切片复刻系统** | 全局切片库 `~/.narrativespace/style_library/{author}/`，按 scene_type + scene_intensity 自动选片注入 Step 10 |
+| **v10.0 步骤序列** | `project_card → 4 → 7 → 8 → 9 → 10 → 11`，`--advance` 严格按此序列推进 |
+| **--link-author 参数** | `init.py --link-author 作者名` 绑定风格切片库作者，`--upgrade` 不覆盖已有绑定 |
+
 ---
 
 ## 使用方式
 
-### 模式 1：完整创作流程（从零开始）
+### 模式 1：完整创作流程（从零开始，v10.0）
 
 ```
 你: "我想写网文，都市系统类。"
 系统: 那我们一步步来。先做对标分析吗？或直接规划？
 
 你: "有3部对标作品。"
-系统: [进入步骤0，对标分析]
+系统: [进入步骤0，对标分析 + 风格切片库构建]
       [输出style_report.md]
       现在开始规划阶段...
 
@@ -332,7 +402,7 @@ python narrativespace-xushikj/scripts/init.py --project-dir /your/project/path
 
 ## 两种写作模式详解
 
-### 流水线模式（脚本执行）
+### 流水线模式（代理/脚本编排执行）
 
 **适合场景**：已有清晰大纲，想高效产出
 
@@ -342,6 +412,8 @@ python narrativespace-xushikj/scripts/init.py --project-dir /your/project/path
 - 自动落盤进入下一章
 - 支持子 agent 架构（章节写手 + 总结官）
 - 内置帮回辅助系统和双保险质量控制
+- 在普通聊天模式下，脚本通常由用户手动运行
+- 在代理模式下，代理可直接代为运行脚本并继续流程
 
 **流程**：
 ```

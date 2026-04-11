@@ -28,6 +28,7 @@ output_language_default:
 # 标点符号标准化
 punctuation_standardization:
   id: meta_02
+  description: "标点规范：正文省略号仅用“……”；非正文停顿统一“...”并禁用“*”；“~”需转义；用户新符号规则优先；正文可用“——”，非正文建议替代。"
   rules:
     - id: ps_01
       name: 省略号

@@ -18,6 +18,13 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 
+def _reconfigure_stdout_utf8() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
 def identify_archivable_sections(memory_content: str) -> List[Dict[str, Any]]:
     """
     分析memory.md内容，识别可归档的内容块。
@@ -182,6 +189,7 @@ def prune_memory(memory_content: str, archivable_sections: List[Dict]) -> str:
 
 def main():
     import argparse
+    _reconfigure_stdout_utf8()
     
     parser = argparse.ArgumentParser(description="记忆自动归档脚本")
     parser.add_argument("--memory-path", required=True, help="memory.md 路径")

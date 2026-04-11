@@ -1,9 +1,9 @@
 {
-  "version": "8.5.0",
+  "version": "10.0.0",
   "project_name": "",
   "created_at": "",
   "updated_at": "",
-  "current_step": 0,
+  "current_step": "project_card",
   "planning_state": {
     "current_step": 1,
     "current_volume": 1,
@@ -24,7 +24,7 @@
     "confirmation_mode": "explicit"
   },
   "rolling_context": {
-    "cycle_id": "cycle_001",
+    "cycle_id": "cycle_1",
     "cycle_size": 3,
     "cycle_status": "plan_light",
     "granularity": "3-5",
@@ -39,7 +39,7 @@
     "creation_mode": "mode_3",
     "execution_mode": "strict",
     "workflow_mode": "guided",
-    "reply_length": "D",
+    "reply_length": 2000,
     "interaction_options": "F",
     "recap_and_guide": "N",
     "periodic_summary": "O",
@@ -107,7 +107,9 @@
       "dna_profile_path": null,
       "dna_modules_generated": [],
       "extraction_completed_at": null
-    }
+    },
+    "linked_author": null,
+    "style_library_path": "~/.narrativespace/style_library"
   },
   "style_module_state": {
     "active_modules": [],
@@ -192,6 +194,7 @@
   },
   "files": {
     "benchmark_report": null,
+    "project_card": null,
     "one_sentence": null,
     "one_paragraph": null,
     "characters": null,

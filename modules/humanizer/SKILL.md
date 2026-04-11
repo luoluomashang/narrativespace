@@ -7,7 +7,7 @@ description: |
 metadata:
   version: 8.4.0
   parent: narrativespace-xushikj
-  step: 11
+  role: post-process
   triggers:
     - 小说去AI
     - 去AI味

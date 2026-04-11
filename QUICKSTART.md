@@ -13,6 +13,43 @@
 | Skill 路径 | `narrativespace-xushikj/` 已放入 `.claude/skills/`（参见 §安装） |
 | 项目目录 | 在本地创建一个空文件夹作为项目根目录 |
 
+## 二阶段新增（脚本编排模式）
+
+这里同样区分两种环境：
+
+1. 普通聊天模式：用户手动运行脚本。
+2. 代理模式（如 Claude Code / VS Code Agent）：代理可代为运行脚本并继续流程。
+3. 关键点：是否由模型执行脚本，不取决于模型本身，而取决于运行环境是否授予工具权限。
+
+推荐先用脚本组装每一步 Prompt，再喂给模型执行：
+
+```bash
+# 看状态
+python narrativespace/scripts/assemble_prompt.py --project-dir .xushikj --status
+
+# 写作前预检（Step10 强校验 + 字数门禁）
+python narrativespace/scripts/validate_state.py --project-dir . --for-step10 --chapter 1 --min-chapter-chars 2500 --strict
+
+# 组装步骤1
+python narrativespace/scripts/assemble_prompt.py --project-dir .xushikj --step 1 --output file --output-file .xushikj/drafts/step1_prompt.md
+
+# 组装步骤10（显式声明写作模式，避免串模）
+python narrativespace/scripts/assemble_prompt.py --project-dir .xushikj --step 10 --chapter 3 --writing-mode pipeline --output file --output-file .xushikj/drafts/ch3_prompt.md
+```
+
+如果执行了 Step 0 对标切片分析，还需要手动落盘切片：
+
+```bash
+python narrativespace/scripts/slice_library.py write-snippet --project-dir . --scene-type daily --content-file snippet_daily.md
+python narrativespace/scripts/slice_library.py write-dna --project-dir . --project-name my_project --dna-json dna_profile.json
+```
+
+阶段推进必须遵循：
+1. 当前阶段完工
+2. 功能自查通过
+3. 调用 `#tool:vscode_askQuestions` 让用户确认是否继续
+4. 用户确认后再进入下一阶段
+
 ### 安装 Skill
 
 ```

@@ -25,6 +25,14 @@ metadata:
 
 运行期配置必须来自 `.xushikj/config/`，不得回退读取 Skill 自带 `config/`。
 
+## 脚本组装前置闸门（HARD STOP）
+
+执行本模块前，必须先通过 `scripts/assemble_prompt.py` 组装步骤7提示词并确认输出已生成。
+
+1. 未确认组装完成时，禁止直接生成或更新知识库正式产物。
+2. 此时只允许返回应执行的组装命令与必要说明，等待用户确认。
+3. 禁止以“已读取部分配置文件”替代步骤组装。
+
 ## 两种写作模式适配
 
 本模块与写作模式无关，在 pipeline（xiezuo）和 interactive（hudong）两种模式下都有相同的 KB 更新节点：

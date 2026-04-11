@@ -4,7 +4,7 @@ description: |
   叙事空间创作系统·场景模块。执行步骤8-9：场景清单编制与场景规划。
   罗列所有场景并为每个场景规划必要信息。
 metadata:
-  version: 8.4.0
+  version: 10.0.0
   parent: narrativespace-xushikj
   steps: [8, 9]
   triggers:
@@ -25,12 +25,25 @@ metadata:
 
 | 配置文件 | 用途 | 必须 |
 |----------|------|------|
-| `.xushikj/config/meta_rules.yaml` | 输出语言与符号标准化 | 是 |
-| `.xushikj/config/writing_rules.yaml` | 描写与表达规范（wr_07爽点密度约束） | 是 |
-| `.xushikj/config/content_limits.yaml` | 内容门槛与禁限 | 是 |
-| `.xushikj/config/quality_dimensions.yaml` | 质检维度参考 | 否 |
+| `.xushikj/config/methodology.yaml` | 八大创作法则（场景设计法则依据） | 是 |
+| `.xushikj/config/safety_guard.yaml` | 双保险配置（敏感度标签系统） | 是 |
+| `.xushikj/config/declarations.yaml` | 三级声明模板（声明注入级别） | 是 |
+| `.xushikj/outline/volume_{V}_one_page.md` | 一页大纲（主输入） | 是 |
+| `.xushikj/outline/volume_{V}_four_pages.md` | 四页大纲（有则读取，无则跳过） | 否 |
+| `.xushikj/outline/project_card.md` | 立项卡（核心角色和世界观参考） | 是 |
+| `.xushikj/knowledge_base.json` | 知识库（实体参考和一致性依据） | 是 |
+| `.xushikj/state.json` | 项目状态（读取配置和当前步骤） | 是 |
+| `.xushikj/summaries/summary_index.md` | 章节概括索引（已写内容快速参考） | 否 |
 
 运行期配置必须来自 `.xushikj/config/`，不得回退读取 Skill 自带 `config/`。
+
+## 脚本组装前置闸门（HARD STOP）
+
+执行本模块前，必须先通过 `scripts/assemble_prompt.py` 组装步骤8-9提示词并确认输出已生成。
+
+1. 未确认组装完成时，禁止直接生成场景清单和场景卡正式产物。
+2. 此时只允许返回应执行的组装命令与必要说明，等待用户确认。
+3. 禁止以“已读取部分配置文件”替代步骤组装。
 
 ## 输入状态
 
@@ -65,6 +78,8 @@ metadata:
 5. `expected_hook`
 6. `expected_hook_type`（必填：`剧情反转` / `危机升级` / `悬念抛出` / `身份暗示` / `时间限制`）
 7. `shuang_type`（必填：`small` / `big` / `transition`）
+8. `scene_type`（必填：`combat` / `face_slap` / `negotiation` / `emotional` / `reveal` / `daily` / `system`）
+9. `scene_intensity`（可选，默认 `medium`：`high`=爽点顶峰或极端压力 / `medium`=正常推进 / `low`=缓压过渡）
 
 通过条件：只要当前 cycle 全章 Layer-1 齐备，即视为场景层面的最小可写条件满足。
 

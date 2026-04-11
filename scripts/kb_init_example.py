@@ -16,6 +16,13 @@ import json
 import os
 import sys
 
+
+def _reconfigure_stdout_utf8() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # ──────────────────────────────────────────────────
 # 配置：输出路径
 # ──────────────────────────────────────────────────
@@ -165,6 +172,7 @@ kb = {
 # 写入逻辑（不需要修改）
 # ──────────────────────────────────────────────────
 def main():
+    _reconfigure_stdout_utf8()
     out_dir = os.path.dirname(OUTPUT_PATH)
     if out_dir and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)

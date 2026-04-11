@@ -31,13 +31,22 @@ global_dna_file: "global_author_dna.yaml"
 global_dna_priority: foundation  # 基底层：低于 dna_human_*.yaml/clone_* 等所有项目级模块
 override_semantics:
   note: "项目级 dna_human_*.yaml 中相同 category+id 规则自动覆写全局规则（项目 > 全局）"
-  priority_chain: "cycle_quirks (tail) > dna_human_*.yaml (supreme) > clone_*.yaml > style_modules > global_author_dna (foundation) > built_in_rules"
+  priority_chain: "cycle_quirks（tier-1, tail最强，卷级短期覆写）> dna_human_*.yaml（tier-2, supreme）> clone_*.yaml（tier-3, high）> style_modules active_modules（tier-4, medium）> global_author_dna（tier-5, foundation）> built_in_rules（tier-6, base）"
 
-# v8.0 新增：行文DNA模块（由 benchmark 模块自动生成，优先级最高）
+# v8.0 新增 / v9.0 升级：行文DNA模块（由 benchmark 模块自动生成，优先级 supreme）
 # dna_human_*.yaml 不在 module_map 中静态注册，而是通过通配符扫描动态加载
-# 加载优先级：dna_human_*.yaml > clone_*.yaml > module_map 中的风格模块
+# 加载优先级：dna_human_*.yaml（supreme）> clone_*.yaml（high）> module_map 中的风格模块（medium）
 dna_module_pattern: "dna_human_*.yaml"
 dna_priority: supreme
+
+# v9.0 新增：DNA加载保障块（防止 dna_human_*.yaml 被遗漏）
+dna_loading_guarantee:
+  scan_per_chapter: true      # 每章写作前必须扫描，不得跳过
+  scan_path: ".xushikj/config/style_modules/"
+  pattern: "dna_human_*.yaml"
+  on_found: "立即加载并注入 write_constraints，优先级 supreme，在 clone_*.yaml 之前执行"
+  on_not_found: "跳过，不报错，继续执行其他风格加载步骤"
+  enforcement_level: mandatory  # mandatory = 写作 orchestrator 必须执行此扫描，不可省略
 
 fallback:
   rule: 无匹配时仅使用 foundational_principles + writing_rules + style_rules。

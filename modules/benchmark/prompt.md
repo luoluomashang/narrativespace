@@ -168,152 +168,459 @@ low    → 在 40% 以下章节中出现，仅供参考
 
 **完成后**：继续执行下方的常规分析流程（若用户还希望提取套路，可继续；若只需要克隆 Prompt，可在此收尾）。
 
-## 行文DNA采集流程（v8.0 新增，逆向工程模式的进阶版）
+## 场景切片库构建（可选，需完整小说文本）
+
+> **触发条件**：用户提供完整小说文本（≥50章），且 benchmark 分析已完成。
+> 切片库是全局跨项目的，每个作者只需构建一次，所有项目复用。
+
+**功能**：从对标作品中提取按场景类型分类的原文片段（350-500字），存入全局切片库 `~/.narrativespace/style_library/{author_slug}/`，供写作模块作为 Few-Shot 语感参考注入。
+
+**七类场景类型**：`combat` / `face_slap` / `negotiation` / `emotional` / `reveal` / `daily` / `system`
+
+**执行方式**：
+
+> **大文本强制脚本化规则（新增）**：当用户提供的是完整作品或超长文本时，禁止让用户在对话中直接粘贴全文。必须改为"文件路径 + 脚本执行"方式，避免上下文过大导致报错。
+
+> **执行前建议**：先统计输入规模（仅中文字符），确认是大文本场景：
+> ```bash
+> python scripts/chinese_char_count.py --input novel.txt
+> ```
+
+1. **代理模式**（AI 可直接调用脚本时）：
+   ```bash
+   python scripts/slice_library.py \
+     --input novel.txt \
+     --author author_slug \
+     --title "作品名" \
+     --project-dir .xushikj
+   ```
+  脚本完成 Step 0（量化扫描+章节类型标注）后，由 LLM 执行 Step 1-2（候选提取+筛选），最后调用脚本的 `write-snippet`/`write-dna` 子命令完成入库。
+
+2. **普通聊天模式**：输出上述脚本命令让用户手动执行 Step 0，然后在对话中完成 Step 1-2 的候选筛选。
+  - 若文本规模很大（例如 > 200 万中文字符），必须坚持文件路径执行，不接受全文粘贴输入。
+  - 若用户仅能分批提供内容，要求按章节文件分批落地到本地文件后再执行脚本，不直接在聊天窗口处理全量文本。
+
+**与逆向工程模式的关系**：切片库和克隆Prompt互补。克隆Prompt提供抽象风格规则，切片库提供具体原文示例。两者可同时使用。
+
+## 行文DNA采集流程（v10.0 重构，脚本量化 + LLM 解读两层架构）
 
 > **触发条件**：用户提供了 **2 部以上参考作品文本**（每部 ≥ 500 字），且逆向工程模式已开启。
 > 仅 1 部作品时，走标准逆向工程流程；2+ 部作品时，自动进入 DNA 联合提取。
 
+> **v10.0 核心设计原则**：脚本负责真正的统计计数（精确数字），LLM 负责模式识别、功能解读和例句选取。
+> - `[S]` 标注字段 = 值来自脚本 `raw_stats.json`，**禁止 LLM 填入自行推断的数字**
+> - `[L]` 标注字段 = LLM 解读输出，填 `dominant/frequent/occasional/rare` 或文字描述，**禁止填精确数字**
+
 ### DNA 联合提取步骤
 
-**Step DNA-1：逐作品特征提取**
+---
 
-对每部作品独立执行特征分析，输出单作品特征卡：
+**Step DNA-0：量化脚本层（新增）**
+
+> ⚠️ 此步骤是 DNA 精度的核心保障。跳过此步骤则整个 DNA 流程降级为 `llm_estimate_mode`，所有字段改为 `[L]` 标注，档案精度显著下降。
+
+**代理模式（具备工具权限）**：对每部作品依次串行执行：
+
+```bash
+python scripts/analyze_dna.py \
+  --input <作品文本文件路径> \
+  --work <作品名> \
+  --project-dir .xushikj
+```
+
+脚本输出 `.xushikj/benchmark/raw_stats_{作品名}.json`，包含以下量化数据：
+
+| 维度 | 工具 | 测量内容 |
+|------|------|---------|
+| 标点与停顿 | 字符统计 | 各标点每千字密度、段尾标点分布、每句平均逗号数 |
+| 段落结构 | 字符串切割 | 平均段长、方差、短段比例、长度百分位 |
+| 句子节奏 | 标点切分 | 句长分布（p25/50/75/95）、句首字符分布 |
+| 句型分类 | spaCy（可选） | 无主句比、SVO比、连动式比；无 spaCy 时降级为启发式估算，标注 `source: estimate` |
+| 词语结构 | jieba POS | 四字格密度、代词/动词/形容词比、ABB/AABB叠词计数 |
+| 话语标记 | 关键词匹配 | 显性连词每千字密度、各连词出现频次、段间硬切比 |
+| 衔接与指代 | jieba POS | 代词每千字密度（字符级） |
+| 例句索引 | 规则过滤 | 每种句型从原文自动抽取 2-3 个代表句（原文原句） |
+
+**普通聊天模式（无工具权限）**：
+- 提示用户在终端执行上述命令，将 `raw_stats_{作品名}.json` 路径告知后继续
+- 若用户选择跳过脚本：继续执行，但 **所有字段改为 `[L]` 标注**，在 DNA 档案中记录 `measurement_mode: llm_estimate`，禁止填入任何精确数字
+
+> ✅ **Step DNA-0 检查点**：
+> - 代理模式：必须列出每部作品的 `raw_stats.json` 输出路径
+> - 普通聊天模式：必须明确说明是否获得脚本数据；若无，声明进入 `llm_estimate_mode`
+
+---
+
+**Step DNA-1：逐作品特征提取（LLM 解读层）**
+
+逐部作品读取 `raw_stats_{作品名}.json`，结合原文切片，完成各维度的解读和例句选取。
+
+**各维度职责分工**
+
+| 维度 | 数据来源 | LLM 职责 |
+|------|---------|---------|
+| 句子结构（句型分类） | `[S]` raw_stats.sentence_types | 解读节奏规律（如"三短一长"），从 `example_sentences` 确认连动/倒装模式 |
+| 句子结构（句长节奏） | `[S]` raw_stats.sentence | 解读句长分布意味着什么风格，归纳长短句切换规律 |
+| 词语结构 | `[S]` raw_stats.lexical | 解读四字格/叠词偏好程度，从原文识别 `signature_word_clusters` 和 `forbidden_words` |
+| 段落结构 | `[S]` raw_stats.paragraph | 解读密度调制规律，判断段首/段尾句的主导功能 |
+| 逻辑结构 | `[S]` raw_stats.discourse | 解读因果链类型（显式/隐式），判断论证推进方式 |
+| 信息锚定顺序 | ❌ 无脚本数据 | 全部定性：从文本切片中判断结果先行/感官前置/背景嵌入方式 |
+| 话语标记隐性化 | `[S]` raw_stats.discourse | 解读隐性化程度和手法，给出段间衔接模式 |
+| 衔接与指代 | `[S]` raw_stats.lexical | 解读指代链长度倾向，识别同义替换词组 |
+| 标点与停顿（功能） | `[S]` raw_stats.punctuation | 解读各标点的功能分配（数值已有，补充"这些数字意味着什么手法"） |
+
+**单作品特征卡 schema（v3.0）**
+
+> `[S]` = 脚本统计值，直接从 `raw_stats.json` 填入，**禁止用 LLM 推断数字替代**
+> `[L]` = LLM 解读/模式识别，填描述词或文字，**禁止填精确数字**
+> `[L from S]` = LLM 基于脚本数值解读出的定性描述
 
 ```yaml
-work_name: "作品名"
-sentence_rhythm:
-  avg_sentence_length: 22
-  short_long_ratio: "3:2"
-  rhythm_pattern: "短-短-长-短（三短一长为主节奏）"
-vocabulary:
-  high_freq_words: ["XX", "XX", ...]
-  avoided_words: ["XX", "XX", ...]
-  signature_collocations: ["XX+XX", ...]
-dialogue:
-  avg_turn_length: 18
-  turn_rhythm: "快问快答为主，关键处一长一短"
-  density_per_1000: 45
-description:
-  sensory_per_1000: 8
-  action_verb_ratio: 0.35
-  non_visual_ratio: 0.4
-transition_patterns:
-  hard_cut_ratio: 0.6
-  soft_transition_ratio: 0.3
-  montage_ratio: 0.1
-paragraph:
-  avg_length: 3.5
-  opening_pattern: "动作前置"
-  closing_pattern: "悬念留白"
-emotion:
-  curve_template: "低开→渐升→爆发→缓落"
-  peak_position: "后1/3"
+work_name: "{作品名}"
+raw_stats_file: ".xushikj/benchmark/raw_stats_{作品名}.json"
+measurement_mode: "script"  # 或 "llm_estimate"（无脚本数据时）
+
+# ===== 句子结构 =====
+sentence_architecture:
+  # --- 脚本量化层 [S] ---
+  avg_sentence_length:  {raw_stats.sentence.avg_length}                    # [S]
+  sentence_length_p50:  {raw_stats.sentence.length_percentiles.p50}        # [S]
+  sentence_length_p95:  {raw_stats.sentence.length_percentiles.p95}        # [S]
+  zero_subject_ratio:   {raw_stats.sentence_types.zero_subject_ratio}      # [S]（spaCy精确）或 estimate
+  serial_verb_ratio:    {raw_stats.sentence_types.serial_verb_ratio}       # [S]（spaCy精确）或 estimate
+  svo_ratio:            {raw_stats.sentence_types.svo_ratio}               # [S]（spaCy时有值）
+  sentence_type_source: "{raw_stats.sentence_types.source}"                # [S] spacy|estimate
+  # --- LLM 解读层 [L from S] ---
+  rhythm_pattern:         ""  # [L] 如"三短一长""快速短爆发→长收束"（从 p25/p75 差值解读）
+  sentence_closure_style: ""  # [L] 动词收束 dominant|名词收束 frequent|语气词收束 occasional|省略收束
+  opening_char_dominant:  ""  # [L] 从 raw_stats.sentence.opening_char_dist 解读主导起句类型
+  # --- 例句锚点（来自 raw_stats.example_sentences 原文原句）---
+  representative_examples:
+    zero_subject:  []  # [S→] 脚本自动抽取，LLM 确认并选最典型的
+    serial_verb:   []
+    long_sentence: []
+    short_burst:   []
+
+# ===== 词语结构 =====
+lexical_structure:
+  # --- 脚本量化层 [S] ---
+  four_char_density:         {raw_stats.lexical.four_char_density}              # [S] 个/千字
+  pronoun_density_per_1000:  {raw_stats.lexical.pronoun_density_per_1000}       # [S]
+  verb_ratio:                {raw_stats.lexical.pos_distribution.verb_ratio}    # [S]
+  adj_ratio:                 {raw_stats.lexical.pos_distribution.adj_ratio}     # [S]
+  abb_count:                 {raw_stats.lexical.abb_count}                      # [S] ABB叠词总数
+  aabb_count:                {raw_stats.lexical.aabb_count}                     # [S] AABB叠词总数
+  # --- LLM 解读层 [L from S] ---
+  four_char_usage_level:  ""  # [L] high(>5/千字)|medium(2-5)|low(<2)
+  stacking_preference:    ""  # [L] ABB式偏好|AABB式偏好|均无明显偏好
+  colloquial_level:       ""  # [L] high|medium|low（口语化程度）
+  concrete_vs_abstract:   ""  # [L] 具象为主|抽象为主|均衡
+  # --- 需 LLM 从原文识别 [L] ---
+  signature_word_clusters: []  # [L] 标志性高频共现词组（从原文识别）
+  forbidden_words:         []  # [L] 作者明显回避的词汇（从原文识别）
+
+# ===== 段落结构 =====
+paragraph_architecture:
+  # --- 脚本量化层 [S] ---
+  avg_paragraph_length:  {raw_stats.paragraph.avg_length}       # [S]
+  length_variance:       {raw_stats.paragraph.length_variance}  # [S]
+  short_para_ratio:      {raw_stats.paragraph.short_para_ratio} # [S] 短段（≤30字）占比
+  # --- LLM 解读层 [L from S] ---
+  paragraph_rhythm_pattern:   ""  # [L] 长-短-长|渐长|渐短|不规则
+  internal_logic_pattern:     ""  # [L] 因果链|并列铺陈|递进升级|对比翻转|时序流动
+  opening_sentence_function:  ""  # [L] 承接|转折|设置场景|抛出悬念|直接行动
+  closing_sentence_function:  ""  # [L] 悬念留白|情绪锚定|行动延续|总结收束
+  density_modulation:         ""  # [L] 高密度动作段 vs 低密度留白段的切换规律
+  representative_examples:    []  # [L] 来自原文的典型段落（各 100-200 字）
+
+# ===== 逻辑结构 =====
+logic_structure:
+  # --- 脚本量化层 [S] ---
+  explicit_marker_density: {raw_stats.discourse.explicit_marker_density_per_1000}  # [S] 个/千字
+  hard_cut_ratio:          {raw_stats.discourse.hard_cut_ratio}                    # [S] 段间无桥比
+  top_markers_used:        {raw_stats.discourse.marker_breakdown}                  # [S] 实际出现的连词及频次
+  # --- LLM 解读层 [L from S] ---
+  causal_chain_style:    ""  # [L] 显式因果词主导|隐式因果结果自现（结合 marker_density 判断）
+  argument_progression:  ""  # [L] 层层剥笋|先结论后补证|类比迁移
+  contrast_deployment:   ""  # [L] 明对比|暗对比|期望与现实对比
+
+# ===== 信息锚定顺序（全部 [L]，无脚本数据）=====
+information_anchoring:
+  result_first_tendency:    ""  # [L] dominant|frequent|occasional|rare（结果先行习惯）
+  sensory_before_cognitive: ""  # [L] 感官前置|认知前置|均衡
+  exposition_embedding:     ""  # [L] 动作中夹叙|对话中透露|旁白直叙
+  detail_zoom_direction:    ""  # [L] 宏观→微观|微观→宏观|交替
+  representative_examples:  []  # [L] 体现信息锚定特征的原文例句
+
+# ===== 话语标记隐性化 =====
+discourse_marker_stealth:
+  # --- 脚本量化层 [S]（复用 logic_structure 数据）---
+  explicit_marker_density: {同 logic_structure.explicit_marker_density}  # [S]
+  hard_cut_ratio:          {同 logic_structure.hard_cut_ratio}           # [S]
+  # --- LLM 解读层 [L from S] ---
+  stealth_level:            ""  # [L] high(显性标记<1个/千字)|medium(1-3)|low(>3)
+  marker_stealth_techniques: []  # [L] 动作切断|场景跳切|节奏变化|标点代替关联词
+  paragraph_bridge_style:   ""  # [L] 关联词桥接|意象呼应|动作接力|无桥硬切
+
+# ===== 衔接与指代 =====
+cohesion_and_reference:
+  # --- 脚本量化层 [S] ---
+  pronoun_density_per_1000: {同 lexical_structure.pronoun_density_per_1000}  # [S]
+  zero_subject_ratio:       {同 sentence_architecture.zero_subject_ratio}    # [S]
+  # --- LLM 解读层 [L] ---
+  reference_chain_tendency:      ""  # [L] 短链（频繁重新具名）|长链（代词延伸多句）
+  synonym_substitution_richness: ""  # [L] high|medium|low（同义替换的丰富度）
+  thematic_progression:          ""  # [L] 主位一致|主位递进|述位→主位链|跳跃式
+  representative_examples:       []  # [L] 体现指代特征的原文切片
+
+# ===== 标点与停顿 =====
+punctuation_and_pause:
+  # --- 脚本量化层 [S] ---
+  comma_per_1000:           {raw_stats.punctuation.comma_per_1000}           # [S]
+  exclaim_per_1000:         {raw_stats.punctuation.exclaim_per_1000}         # [S]
+  ellipsis_per_1000:        {raw_stats.punctuation.ellipsis_per_1000}        # [S]
+  dash_per_1000:            {raw_stats.punctuation.dash_per_1000}            # [S]
+  question_per_1000:        {raw_stats.punctuation.question_per_1000}        # [S]
+  avg_clauses_per_sentence: {raw_stats.punctuation.avg_clauses_per_sentence} # [S] 每句平均逗号数
+  para_ending_dist:         {raw_stats.punctuation.para_ending_dist}         # [S] 段尾标点分布
+  # --- LLM 解读层 [L from S] ---
+  comma_function:       ""  # [L] 呼吸切分主导|列举分隔主导|插入语隔断主导
+  ellipsis_function:    ""  # [L] 沉默停顿|思维断裂|未尽之意（从 example_sentences 解读）
+  dash_function:        ""  # [L] 话语中断|解释补充|情绪延伸
+  sentence_break_style: ""  # [L] 短句用句号断开|逗号串联长句（结合 avg_clauses 解读）
+
+# ===== 宏观补充段（全部 [L]）=====
+emotion_curve_template:
+  default_curve: ""  # [L] 如"低开→渐升→爆发→缓落"
+  peak_position: ""  # [L] 前1/3|中段|后1/3
+
+dialogue_dna:
+  density_level:         ""  # [L] high|medium|low（对话密度主观评级）
+  avg_turn_length_level: ""  # [L] short(<20字)|medium|long(>50字)
 ```
+
+---
 
 **Step DNA-2：横向共性提取**
 
-将所有单作品特征卡横向对比，提取共性DNA：
-- **共性规则**：在 70%+ 作品中一致出现的特征 → 标记 `confidence: high`，写入 DNA
-- **多数规则**：在 50-69% 作品中出现 → 标记 `confidence: medium`，写入 DNA
-- **个性特征**：仅在 1 部作品中出现 → 排除，不写入 DNA（避免个别作品的特异性）
-- **冲突处理**：若两部作品在某维度互相矛盾，取中间值或标注为 `contested`
+将所有单作品特征卡横向对比，提取共性 DNA：
 
-**Step DNA-3：生成行文DNA档案**
+| 字段类型 | 横向处理方式 | 输出标注 |
+|---------|------------|---------|
+| `[S]` 数值字段 | 取均值（2部作品）或中位数（3+部作品） | 保持 `# [S]`，附注取值来源 |
+| `[L]` 描述字段 | 取最常见描述；若各作品一致则直接采纳 | 保持 `# [L]` |
+| 冲突字段 | 标注 `contested` 并说明各作品差异 | `# [contested]` |
+
+置信度标准：
+- **high**：70%+ 作品中一致（≥2部时2部一致；≥3部时2+部一致）
+- **medium**：50-69%（≥3部时2部一致）
+- **low**：40% 以下，仅供参考
+
+> ✅ **Step DNA-2 检查点**：必须输出横向比对表（格式：`基因段 | 作品A | 作品B | 共识结论 | confidence`）。未输出则视为未完成，禁止进入 DNA-3。
+
+---
+
+**Step DNA-3：生成行文 DNA 档案**
 
 输出完整的 `writing_dna_profile.yaml`，存储路径：`.xushikj/benchmark/writing_dna_profile.yaml`
-
-档案包含以下基因段：
 
 ```yaml
 # 行文DNA档案 — {project_name}
 # 采集来源：{作品列表}
 # 采集日期：{date}
 
-dna_version: "1.0"
-source_works: ["作品A", "作品B", "作品C"]
+dna_version: "3.0"
+source_works: ["{作品A}", "{作品B}"]
+measurement_note:
+  script_backed_dims: ["sentence_architecture", "lexical_structure", "paragraph_architecture",
+                       "logic_structure", "discourse_marker_stealth", "cohesion_and_reference", "punctuation_and_pause"]
+  llm_only_dims: ["information_anchoring", "emotion_curve_template", "dialogue_dna"]
+  sentence_type_source: "spacy"  # 或 "estimate"
 
-sentence_rhythm_pattern:
-  confidence: high
-  avg_sentence_length: {统计值}
-  short_long_alternation: "{规律描述}"
-  forbidden_rhythm: "{禁止的节奏模式}"
+# 注释说明：
+# [S] = 脚本统计值，有原文数据背书
+# [L] = LLM 解读/模式识别，无精确数据背书，用例句锚定而非数字约束
+# [contested] = 各作品在该维度有明显差异
 
-vocabulary_fingerprint:
-  confidence: high
-  preferred_words: [...]
-  forbidden_words: [...]
-  signature_collocations: [...]
+sentence_architecture:
+  confidence: high|medium|low
+  avg_sentence_length:   {跨作品均值}  # [S]
+  sentence_length_p50:   {跨作品均值}  # [S]
+  sentence_length_p95:   {跨作品均值}  # [S]
+  zero_subject_ratio:    {跨作品均值}  # [S]
+  serial_verb_ratio:     {跨作品均值}  # [S]
+  rhythm_pattern:        "{共识描述}"  # [L]
+  sentence_closure_style: "{共识描述}" # [L]
+  representative_examples:
+    zero_subject:  ["{原文例句1}", "{原文例句2}"]
+    serial_verb:   ["{原文例句1}", "{原文例句2}"]
+    short_burst:   ["{原文例句1}", "{原文例句2}", "{原文例句3}"]
 
+lexical_structure:
+  confidence: high|medium|low
+  four_char_density:        {跨作品均值}  # [S]
+  pronoun_density_per_1000: {跨作品均值}  # [S]
+  verb_ratio:               {跨作品均值}  # [S]
+  abb_count_per_10k:        {跨作品均值}  # [S] 每万字ABB叠词数
+  four_char_usage_level:  "{描述}"        # [L]
+  colloquial_level:       "{描述}"        # [L]
+  concrete_vs_abstract:   "{描述}"        # [L]
+  signature_word_clusters: [...]          # [L]
+  forbidden_words:         [...]          # [L]
+
+paragraph_architecture:
+  confidence: high|medium|low
+  avg_paragraph_length: {跨作品均值}  # [S]
+  length_variance:      {跨作品均值}  # [S]
+  short_para_ratio:     {跨作品均值}  # [S]
+  paragraph_rhythm_pattern:  "{描述}"  # [L]
+  internal_logic_pattern:    "{描述}"  # [L]
+  opening_sentence_function: "{描述}"  # [L]
+  closing_sentence_function: "{描述}"  # [L]
+  density_modulation:        "{描述}"  # [L]
+  representative_examples:   ["{典型段落（100-200字，来自原文）}"]
+
+logic_structure:
+  confidence: high|medium|low
+  explicit_marker_density: {跨作品均值}  # [S]
+  hard_cut_ratio:          {跨作品均值}  # [S]
+  causal_chain_style:   "{描述}"         # [L]
+  argument_progression: "{描述}"         # [L]
+  contrast_deployment:  "{描述}"         # [L]
+
+information_anchoring:
+  confidence: high|medium|low  # 全部 [L]
+  result_first_tendency:    "{描述}"
+  sensory_before_cognitive: "{描述}"
+  exposition_embedding:     "{描述}"
+  detail_zoom_direction:    "{描述}"
+  representative_examples:  ["{体现信息锚定特征的原文例句}"]
+
+discourse_marker_stealth:
+  confidence: high|medium|low
+  explicit_marker_density: {跨作品均值}  # [S]
+  hard_cut_ratio:          {跨作品均值}  # [S]
+  stealth_level:           "{描述}"      # [L]
+  marker_stealth_techniques: [...]       # [L]
+  paragraph_bridge_style:    "{描述}"    # [L]
+
+cohesion_and_reference:
+  confidence: high|medium|low
+  pronoun_density_per_1000:      {跨作品均值}  # [S]
+  zero_subject_ratio:            {跨作品均值}  # [S]
+  reference_chain_tendency:      "{描述}"      # [L]
+  synonym_substitution_richness: "{描述}"      # [L]
+  thematic_progression:          "{描述}"      # [L]
+  representative_examples:       ["{原文例句}"]
+
+punctuation_and_pause:
+  confidence: high|medium|low
+  comma_per_1000:           {跨作品均值}  # [S]
+  exclaim_per_1000:         {跨作品均值}  # [S]
+  ellipsis_per_1000:        {跨作品均值}  # [S]
+  dash_per_1000:            {跨作品均值}  # [S]
+  avg_clauses_per_sentence: {跨作品均值}  # [S]
+  comma_function:       "{描述}"          # [L]
+  ellipsis_function:    "{描述}"          # [L]
+  dash_function:        "{描述}"          # [L]
+  sentence_break_style: "{描述}"          # [L]
+
+# ===== 宏观补充段（全部 [L]）=====
 emotion_curve_template:
-  confidence: medium
-  default_curve: "{描述}"
-  peak_position: "{位置}"
+  confidence: high|medium|low
+  default_curve: "{描述}"  # [L]
+  peak_position: "{描述}"  # [L]
 
 dialogue_dna:
-  confidence: high
-  avg_turn_length: {统计值}
-  max_consecutive_turns: {值}
-  density_per_1000_words: {值}
-
-description_density:
-  confidence: high
-  sensory_words_per_1000: {值}
-  non_visual_ratio: {值}
-  action_verb_ratio: {值}
-
-transition_patterns:
-  confidence: medium
-  hard_cut_ratio: {值}
-  soft_transition_ratio: {值}
-
-paragraph_structure:
-  confidence: high
-  avg_paragraph_lines: {值}
-  opening_pattern: "{模式}"
-  closing_pattern: "{模式}"
+  confidence: high|medium|low
+  density_level:         "{描述}"  # [L]
+  avg_turn_length_level: "{描述}"  # [L]
 
 benchmark_paragraphs:
-  - source: "作品A 第X章"
-    text: "{200字标杆段落}"
-    highlights: "此段体现了XXX基因"
-  - source: "作品B 第Y章"
-    text: "{200字标杆段落}"
-    highlights: "此段体现了XXX基因"
-  - source: "作品C 第Z章"
-    text: "{200字标杆段落}"
-    highlights: "此段体现了XXX基因"
+  - source: "{作品A 章节}"
+    text: "{200字标杆段落——直接引用原文}"
+    highlights: "此段体现了：{关键DNA特征}"
+    s_backed_features:             # 脚本数字佐证
+      - "zero_subject_ratio={值}"
+      - "hard_cut_ratio={值}"
+  - source: "{作品B 章节}"
+    text: "{200字标杆段落——直接引用原文}"
+    highlights: "此段体现了：{关键DNA特征}"
+    s_backed_features: [...]
 ```
 
-**Step DNA-4：自动转换为可执行模块**
+---
+
+**Step DNA-4：生成可执行模块**
 
 将 DNA 档案转换为 `config/style_modules/dna_human_{project_name}.yaml`：
 
 ```yaml
 # 行文DNA可执行模块 — {project_name}
-# 自动生成自 writing_dna_profile.yaml
+# 自动生成自 writing_dna_profile.yaml v3.0
 module_type: dna_human
-priority: supreme  # 高于 clone_* 和所有内置模块
+priority: supreme  # 高于 clone_* 和所有内置模块，每章必须加载
+data_quality: "script_backed"  # 或 "llm_estimate"
+
+# [S] 来源规则 → 数字有数据背书，可直接作为硬约束
+# [L] 来源规则 → 定性描述 + few_shot 例句锚定，不用精确数字约束
 
 do:
-  - "句式节奏：{具体指令}"
-  - "词汇选取：{具体指令}"
-  - "对话密度：{具体指令}"
-  - "感官描写：{具体指令}"
-  - "段落结构：{具体指令}"
+  # === 句子结构 [S] ===
+  - "句长：目标平均 {avg_sentence_length} 字（脚本测量原作实际值）；节奏模式：{rhythm_pattern}"
+  - "无主句：约 {zero_subject_ratio_pct}% 的句子省略主语（尤其动作段）——仿照 few_shot_anchors[0]"
+  - "连动式：约 {serial_verb_ratio_pct}% 的句子含 3+ 连续动词——仿照 few_shot_anchors[0]"
+  # === 词语结构 [S] ===
+  - "四字格：每千字约 {four_char_density} 个（{four_char_usage_level}），不刻意堆砌"
+  - "叠词：{stacking_preference}，偶发性使用"
+  - "口语化：{colloquial_level}；{concrete_vs_abstract}"
+  - "禁用词：{forbidden_words}"
+  # === 段落结构 [S] ===
+  - "段落节奏：{paragraph_rhythm_pattern}；平均段长约 {avg_paragraph_length} 字，短段比 {short_para_ratio_pct}%"
+  - "段首句：{opening_sentence_function}"
+  - "段尾句：{closing_sentence_function}"
+  - "密度调制：{density_modulation}"
+  # === 话语标记 [S] ===
+  - "显性连词密度：{explicit_marker_density}/千字（属于 {stealth_level} 隐性化）；{paragraph_bridge_style}"
+  # === 信息锚定 [L 例句锚定] ===
+  - "信息顺序：{result_first_tendency}——参见 few_shot_anchors[1]"
+  - "感官/认知：{sensory_before_cognitive}——参见 few_shot_anchors[1]"
+  - "背景嵌入：{exposition_embedding}，禁止旁白堆砌"
+  # === 衔接与指代 [S] ===
+  - "代词密度约 {pronoun_density_per_1000}/千字；{reference_chain_tendency}；同义替换：{synonym_substitution_richness}"
+  # === 标点与停顿 [S] ===
+  - "感叹号：每千字 ≤ {exclaim_per_1000} 个（原作实际测量值）"
+  - "省略号：{ellipsis_function}（每千字 {ellipsis_per_1000} 个）"
+  - "逗号节奏：每句平均 {avg_clauses_per_sentence} 个逗号；{comma_function}"
 
 dont:
-  - "禁止：{具体禁令}"
-  - "避免：{具体禁令}"
+  - "禁止使用以下词汇：{forbidden_words}"
+  - "禁止连续 3 句以上使用相同句型而不变化"
+  - "禁止感叹号每千字超过 {exclaim_per_1000} 个（原作实测上限）"
+  - "禁止省略号连续出现超过 2 次"
+  - "禁止旁白直叙方式堆砌背景设定，须嵌入动作或对话"
 
 few_shot_anchors:
-  - "{标杆段落1}"
-  - "{标杆段落2}"
-  - "{标杆段落3}"
+  - label: "无主句 + 连动式示范"
+    text: "{直接引用 benchmark_paragraphs 中对应原文段落}"
+    s_features: "zero_subject_ratio={值}, serial_verb_ratio={值}"
+  - label: "信息锚定顺序示范（感官前置/结果先行）"
+    text: "{直接引用 benchmark_paragraphs 中对应原文段落}"
+    s_features: "hard_cut_ratio={值}"
+  - label: "标点节奏示范"
+    text: "{直接引用 benchmark_paragraphs 中对应原文段落}"
+    s_features: "exclaim_per_1000={值}, avg_clauses_per_sentence={值}"
 ```
 
-更新 `style_modules/index.yaml`，将 DNA 模块注册为可用选项。
+更新 `style_modules/index.yaml`（通配符扫描，无需手动操作）。
 
-> ✅ **DNA 采集检查点（强制）**：必须输出 ① DNA 档案全文 ② 可执行模块全文 ③ 各基因段置信度汇总表。未完整输出三项则视为 DNA 采集未完成。
+> ✅ **DNA 采集检查点（强制，v3.0）**：
+> ① `raw_stats.json` 已生成（代理模式），或已声明进入 `llm_estimate_mode`（普通聊天模式）
+> ② 特征卡中所有 `[S]` 字段已填入数值，且来自 `raw_stats.json` 而非 LLM 自行推断
+> ③ 每个基因段有 ≥1 条 `representative_examples` 为原文直接引用（非改写，非编造）
+> ④ 可执行模块的 `few_shot_anchors` 引用了 `benchmark_paragraphs` 中的原文段落
+>
+> 未满足以上任一条件，视为 DNA 采集未完成。
 
 ## 分析流程
 
@@ -385,18 +692,20 @@ few_shot_anchors:
 
 ### 阶段五：场景化文本切片提取
 
-从对标作品中提取 3-5 个场景化文本切片：
+从对标作品中提取 5 个场景化文本切片：
 
 - **切片来源**：用户提供原文时直接截取；仅有作品名时基于记忆还原或引导用户补充
 - **切片长度**：每段 200-500 字
-- **覆盖类型**（至少覆盖其中 3 类）：
+- **覆盖类型**（覆盖其中 5 类）：
   - `combat`：战斗/对抗/生死博弈
   - `face_slap`：装逼打脸/打脸逆转
   - `daily`：日常对话/人物互动
   - `emotional`：情绪爆发/内心独白
   - `system`：系统/金手指触发/奖励发放
 - **每切片标注**：`scene_type` 标签 + 简短说明（为何选取此段作为该类型的代表）
-- **存储路径**：`.xushikj/benchmark/style_snippets/`，每个切片独立 `.md` 文件，命名为 `{scene_type}_{序号}.md`
+- **存储路径（主）**：`~/.narrativespace/style_library/{author_slug}/`（供写作注入直接读取）
+- **存储路径（回退）**：`.xushikj/benchmark/style_snippets/`（项目内冗余副本）
+- **命名规则**：`{scene_type}_{timestamp}.md`
 
 ## 产出格式
 
@@ -481,9 +790,9 @@ benchmark_binding:
 
 | 切片编号 | 场景类型 | 来源 | 文件路径 |
 |----------|----------|------|----------|
-| snippet_01 | combat | {作品名} | .xushikj/benchmark/style_snippets/combat_01.md |
-| snippet_02 | face_slap | {作品名} | .xushikj/benchmark/style_snippets/face_slap_01.md |
-| snippet_03 | daily | {作品名} | .xushikj/benchmark/style_snippets/daily_01.md |
+| snippet_01 | combat | {作品名} | ~/.narrativespace/style_library/{author_slug}/combat_20260101_120000.md |
+| snippet_02 | face_slap | {作品名} | ~/.narrativespace/style_library/{author_slug}/face_slap_20260101_120100.md |
+| snippet_03 | daily | {作品名} | ~/.narrativespace/style_library/{author_slug}/daily_20260101_120200.md |
 | ... | | | |
 
 ## 七、风格克隆 Prompt（如使用逆向工程模式）
@@ -506,7 +815,7 @@ benchmark_binding:
 >
 > 您是否满意这份分析？如果需要调整某些风格参数，请告诉我。
 > 满意的话，我们进入第一步：一句话概括。
-5. **保存场景切片**：将阶段五提取的切片写入 `.xushikj/benchmark/style_snippets/`，按 `{scene_type}_{序号}.md` 命名
+5. **保存场景切片**：通过 `scripts/slice_library.py write-snippet` 落盘；有 `linked_author` 时同步写入全局库，项目本地保留回退副本
 6. **保存克隆 Prompt**（仅逆向工程模式）：将风格克隆 Prompt 写入 `.xushikj/config/style_modules/clone_{project_name}.yaml`，并更新 `style_modules/index.yaml`
 
 ## 修改过程重锚规则

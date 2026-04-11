@@ -98,16 +98,14 @@
 | 状态机 | `.xushikj/state.json` | 项目状态、章节号、配置 |
 | 项目记忆 | `.xushikj/memory.md` | 进度、叮嘱、反思 |
 | 概要索引 | `.xushikj/summaries/summary_index.md` | 如存在则加载 |
+| 风格切片 | `~/.narrativespace/style_library/{linked_author}/`（主）+ `.xushikj/benchmark/style_snippets/`（回退） | 按当前章scene_type加载；全局库不可用时自动回退本地；均缺失时跳过 |
 
 ### 首次加载（进入跑团模式时）
 
 | 文件 | 路径 | 用途 |
 |------|------|------|
-| 核心概念 | `.xushikj/outline/one_sentence.md` | 一句话概括 |
-| 三幕骨架 | `.xushikj/outline/one_paragraph.md` | 故事骨架 |
-| 人物卡目录 | `.xushikj/outline/characters/` | 角色设定 |
+| 立项卡 | `.xushikj/outline/project_card.md` | 核心信息来源（主角、世界观/金手指、关键角色） |
 | 人物弧光 | `.xushikj/outline/character_arcs.md` | 角色发展弧线（如存在则加载） |
-| 世界规则 | `.xushikj/outline/worldview_and_system.md` | 仅步骤 2.5 触发时加载 |
 
 ### 不加载
 
@@ -124,10 +122,9 @@
 
 进入跑团写作前，必须满足：
 
-1. Core Meta 非空（`one_sentence.md` 或 `one_paragraph.md`）
-2. `.xushikj/outline/characters/` 至少包含主角与关键配角
-3. `knowledge_base.json` 已完成 lite 初始化
-4. 用户明确表示要进入跑团/互动模式
+1. `.xushikj/outline/project_card.md` 已完成（含一句话核心、主角、世界观/金手指、关键角色）
+2. `knowledge_base.json` 已完成 lite 初始化
+3. 用户明确表示要进入跑团/互动模式
 
 未满足时，只能继续提问或补齐 KB lite，不得进入 OPENING 阶段。
 
@@ -320,8 +317,15 @@
    > - `dialogue-writing-rules.md` 失败 → 使用内嵌区 **F**（对话写作规则）
    >
    > **最终兜底校验**：若 write_constraints 编译完成后内容量小于 100 字（判定为文件读取全部失败）→ 强制将本文件内嵌区 A+B+C+D 完整内容作为 write_constraints，禁止以任何理由留空。
-7. **一次性加载风格对标切片**（如存在）：
-   - 检查 `.xushikj/benchmark/style_snippets/` → 加载 1-2 个匹配切片 → 存入 `style_reference_snippets`
+7. **一次性加载风格对标切片**（全局优先 + 本地回退）：
+  - 读取 `state.json → benchmark_state.linked_author` 与 `benchmark_state.style_library_path`
+  - 若 `linked_author` 有值 → 读取 `{style_library_path}/{linked_author}/manifest.yaml`（默认 `~/.narrativespace/style_library/{linked_author}/manifest.yaml`）
+   - 从 manifest.snippets 中找到与当前章 scene_card.scene_type 匹配的条目
+  - 若 scene_type 无匹配 → 回退到 daily 类型切片
+   - 按 scene_card.scene_intensity 优先级选片（high→high, medium→medium, low→low, 同级随机选1个）
+  - 若全局库不可用或无匹配 → 回退 `.xushikj/benchmark/style_snippets/{scene_type}_*.md`，仍无则回退 `daily_*.md`
+  - 若最终仍无可用切片 → `style_snippet = null`
+   - 将选中的切片存入本次对话的 `write_constraints` 摘要，每回合生成前注入（注入位置：用户决策内容之前，DM sub-agent 指令之后）
 7.5. **加载 Few-Shot 写作示例**（如存在）：
    - 检查 `.xushikj/references/few_shot_examples.md` 是否存在
    - 若存在：读取 `state.json → config.novel_type_tags` → 选取题材最匹配的 1-2 个示例段落 → 存入 `few_shot_snippets`
@@ -907,7 +911,17 @@ raw_output = DM sub-agent 完整返回内容
 ### 执行清单
 
 1. **冻结草稿**：将 `current_chapter_draft` 标记为最终版
-2. **self_check 质量门禁**：
+2. **中文字数门禁（强制，不可绕过）**：
+   - 对 `current_chapter_draft` 执行：
+     `python scripts/chinese_char_count.py --text "{current_chapter_draft}"`
+   - 读取 `state.json → config.reply_length` 作为 `min_zh_chars`
+   - 若 `zh_char_count < min_zh_chars`：
+     → 立即 HALT 严格打回（不可强制落盘）
+     → 提示用户："中文字数不达标（{zh_char_count} < {min_zh_chars}），已严格打回，请继续推演补足后再落盘。"
+     → 状态回退到 `PACING_ALERT`（`pacing_hint = "wrap_up"`）
+     → 本次 LANDING 终止，禁止进入 maintenance agent
+   - 若通过：输出 token：`[ZH_COUNT_PASS: {zh_char_count}/{min_zh_chars}]`
+3. **self_check 质量门禁**：
    - 读取 `.xushikj/config/self_check_rules.yaml`
    - 对**完整** `current_chapter_draft` 执行全部自检规则
    - 重点检查：`hook_last_200`（章末钩子）、`no_recap_opening`（开头禁复述）、`dialogue_balance`（对话占比）
@@ -916,35 +930,35 @@ raw_output = DM sub-agent 完整返回内容
      → 用户选择继续 → 回到 PACING_ALERT（pacing_hint = "cliffhanger"）
      → 用户选择强制 → 继续落盘
    - WARN 级：记录但不阻塞
-3. **写入正式章节**：`chapters/chapter_{N}.md`
-3.5. 【v8.0 新增】**生成记忆锚点**：
+4. **写入正式章节**：`chapters/chapter_{N}.md`
+4.5. 【v8.0 新增】**生成记忆锚点**：
    - 参照 `templates/chapter_anchor_template.md` 格式，从本章正文提取四字段锚点：
      - 关键转折（一句话）
      - 最紧迫悬念（一句话）
      - 主角情绪快照（须含具象比喻，≤30 字）
      - 下章债务（必须兑现的承诺）
    - 整锚点 ≤150 字，保存到 `.xushikj/anchors/anchor_chapter_{N}.md`
-3.6. 【v8.4 新增】**LANDING 人味增强（Prose Enhancement）**：
+4.6. 【v8.4 新增】**LANDING 人味增强（Prose Enhancement）**：
    - 对 `current_chapter_draft` 执行人味密度快检（≤5秒内，不另起独立 sub-agent，在主进程内执行）：
      - 统计 ht_08~ht_12 规则的命中次数（记忆碎片/日常宏大/哲理隐喻/间接人性/母题回响）
      - 若命中总数 < 2：自动在 `current_chapter_draft` 尾部添加一段 ≤80 字的补强段落（从未命中的 ht 规则中随机选 1 条执行）
      - 输出 token：`[PROSE_ENHANCE: ht={hit_count} | {'补强已添加: '+rule_id if augmented else '无需补强'}]`
    - 补强段落要求：与前文情境自然衔接，不得另起话头，不得引入新角色
-4. **启动 maintenance agent**（参见 `references/maintenance-agent-prompt.md`）：
+5. **启动 maintenance agent**（参见 `references/maintenance-agent-prompt.md`）：
    - Step 0：从完整 WIP 提取 KB diff（时间轴扫描法）
    - Step 1：验证并应用 KB diff → 更新 `knowledge_base.json`
    - Step 2：生成章节概括 → 写入 `summaries/chapter_{N}_summary.md`
    - Step 3：更新 `summaries/summary_index.md`
    - Step 4：八维度质量评估 → 写入 `quality_reports/chapter_{N}_quality.md`
-5. **更新 state.json**：
+6. **更新 state.json**：
    - `chapter_state.current_chapter` +1
    - `knowledge_base_version` +1
    - `files.anchors` 追加本章锚点路径（v8.0 新增）
    - `line_heat.last_updated_chapter` = 当前章节号（与流水线模式保持一致，标记本次 line_heat 数据新鲜度，防止切回流水线时数据失真）
    - `updated_at` 更新
-6. **更新 memory.md**：记录本章落盘信息
-7. **清理章内变量**：重置 `current_chapter_draft`、`turn_history`、`accumulated_word_count`、`turn_number`、`current_sensitivity`
-8. **向用户确认**：报告落盘完成，显示质量评估摘要
+7. **更新 memory.md**：记录本章落盘信息
+8. **清理章内变量**：重置 `current_chapter_draft`、`turn_history`、`accumulated_word_count`、`turn_number`、`current_sensitivity`
+9. **向用户确认**：报告落盘完成，显示质量评估摘要
 
 ### 落盘后
 

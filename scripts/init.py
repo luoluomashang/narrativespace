@@ -17,6 +17,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+def check_runtime_dependencies() -> list[str]:
+    """Best-effort dependency diagnostics for optional workflows."""
+    warnings: list[str] = []
+    try:
+        import yaml  # type: ignore
+    except Exception:
+        warnings.append("  [warn]    缺少依赖 PyYAML（pip install pyyaml），style_snippet 与 DNA 解析将降级。")
+
+    try:
+        import jieba  # type: ignore
+    except Exception:
+        warnings.append("  [warn]    缺少依赖 jieba（pip install jieba），analyze_dna 词法分析将不可用。")
+
+    # spaCy is optional; only warn for benchmark precision.
+    try:
+        import spacy  # type: ignore
+        _ = spacy
+    except Exception:
+        warnings.append("  [warn]    未安装 spaCy（可选）。安装后可提升长文本句法分析精度：pip install spacy")
+
+    return warnings
+
+
 def _reconfigure_stdout_utf8() -> None:
     """强制 stdout/stderr 使用 UTF-8，避免 Windows GBK 控制台编码错误。"""
     if hasattr(sys.stdout, "reconfigure"):
@@ -88,6 +111,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=Path,
         metavar="PATH",
         help="全局作者DNA文件路径（默认：$NARRATIVESPACE_GLOBAL_PATH → ~/.narrativespace/global_author_dna.yaml）",
+    )
+    parser.add_argument(
+        "--link-author",
+        type=str,
+        default=None,
+        metavar="AUTHOR_SLUG",
+        help="绑定全局风格切片库作者（写入 state.json → benchmark_state.linked_author）",
     )
     return parser
 
@@ -379,6 +409,8 @@ def main() -> None:
         print(f"错误：项目目录不存在: {project_dir}", file=sys.stderr)
         sys.exit(1)
 
+    dep_warnings = check_runtime_dependencies()
+
     # ── 标题 ──────────────────────────────────────────────────────────────────
     print(f"\n叙事空间创作系统 — 项目{'升级' if upgrade else '初始化'}")
     print(f"项目目录 : {project_dir}")
@@ -393,6 +425,11 @@ def main() -> None:
 
     ensure_dirs(xushikj)
     print("创建目录结构... 完成")
+
+    if dep_warnings:
+        print("\n依赖检查提示:")
+        for line in dep_warnings:
+            print(line)
 
     # ── 缺失文件预检 ──────────────────────────────────────────────────────────
     gaps = scan_project_gaps(xushikj, SKILL_ROOT)
@@ -666,6 +703,43 @@ def main() -> None:
                     log.append("  [patch]   state.json 版本号已升级到 8.5.0")
                     patched = True
 
+                # ── v10.0 升级补丁 ────────────────────────────────────
+
+                # 补丁 22（v10.0）：注入 benchmark_state.linked_author
+                benchmark_state = state.setdefault("benchmark_state", {})
+                if "linked_author" not in benchmark_state:
+                    benchmark_state["linked_author"] = None
+                    log.append("  [patch]   state.json 已补充 benchmark_state.linked_author 字段（v10.0 风格切片库）")
+                    patched = True
+                if "style_library_path" not in benchmark_state:
+                    benchmark_state["style_library_path"] = "~/.narrativespace/style_library"
+                    log.append("  [patch]   state.json 已补充 benchmark_state.style_library_path 字段")
+                    patched = True
+
+                # 补丁 24（v10.0）：统一 cycle_id 命名，避免 cycle_001/cycle_1 漂移
+                rolling_context = state.setdefault("rolling_context", {})
+                if rolling_context.get("cycle_id") == "cycle_001":
+                    rolling_context["cycle_id"] = "cycle_1"
+                    log.append("  [patch]   state.json rolling_context.cycle_id 已统一为 cycle_1")
+                    patched = True
+
+                # 补丁 25（v10.0）：reply_length 从旧档位字母迁移为最小中文字符数
+                cfg = state.setdefault("config", {})
+                reply_length = cfg.get("reply_length")
+                if isinstance(reply_length, str):
+                    mapping = {"A": 5000, "B": 4000, "C": 2500, "D": 2000}
+                    upper = reply_length.strip().upper()
+                    if upper in mapping:
+                        cfg["reply_length"] = mapping[upper]
+                        log.append(f"  [patch]   state.json config.reply_length 已从 {upper} 迁移为 {mapping[upper]}")
+                        patched = True
+
+                # 补丁 23（v10.0）：版本号升级到 10.0.0
+                if state.get("version", "") < "10.0.0":
+                    state["version"] = "10.0.0"
+                    log.append("  [patch]   state.json 版本号已升级到 10.0.0")
+                    patched = True
+
                 if patched:
                     state["updated_at"] = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                     with state_path.open("w", encoding="utf-8") as f:
@@ -677,6 +751,28 @@ def main() -> None:
         log.extend(copy_references(xushikj, force))
         log.extend(sync_config(xushikj, force))
         inject_global_dna(xushikj, getattr(args, 'global_dna_path', None), log)  # v8.5
+
+    # ── --link-author 处理 ──────────────────────────────────────────
+    link_author = getattr(args, 'link_author', None)
+    if link_author:
+        state_path = xushikj / "state.json"
+        if state_path.exists():
+            try:
+                with state_path.open("r", encoding="utf-8") as f:
+                    state = json.load(f)
+                manifest_path = Path.home() / ".narrativespace" / "style_library" / link_author / "manifest.yaml"
+                benchmark_state = state.setdefault("benchmark_state", {})
+                if manifest_path.exists():
+                    benchmark_state["linked_author"] = link_author
+                    log.append(f"  [patch]   ✅ 已绑定风格作者：{link_author}")
+                else:
+                    benchmark_state["linked_author"] = None
+                    log.append(f"  [warn]    ⚠️ 切片库中未找到作者 {link_author}，linked_author 设为 null")
+                state["updated_at"] = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                with state_path.open("w", encoding="utf-8") as f:
+                    json.dump(state, f, ensure_ascii=False, indent=2)
+            except (json.JSONDecodeError, OSError) as exc:
+                log.append(f"  [warn]    --link-author 处理失败: {exc}")
 
     print("\n文件操作详情:")
     for line in log:

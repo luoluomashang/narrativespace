@@ -50,7 +50,7 @@ orchestrator 会在调用时内联提供以下参数：
 | `pov_mode` | 视角模式（默认 limited_third，可选 omniscient），从 scene_plan 或 state_config 提取 |
 | `narrative_tension` | `state.json → narrative_tension` 完整对象（current_tension / current_expectation / last_payoff_chapter），用于 Self_Audit Q5 爽点门控检查 |
 | `anchor_snippets` | 最近 3 章记忆锚点（关键转折/悬念/情绪快照/债务），用于衔接校验（v8.0 新增） |
-| `dna_constraints` | 行文DNA可执行约束——DO/DON'T 对照表 + 标杆段落，从 dna_human_*.yaml 提取（v8.0 新增，最高优先级） |
+| `dna_constraints` | 行文DNA可执行约束——DO/DON'T 对照表 + 标杆段落 + 8 微观基因段约束（sentence_architecture / lexical_structure / paragraph_architecture / logic_structure / information_anchoring / discourse_marker_stealth / cohesion_and_reference / punctuation_and_pause），从 dna_human_*.yaml 提取（v9.0 升级，优先级 supreme） |
 | `emotional_temperature` | 当前章节情绪温度等级（cold/warm/hot）及对应 writing_effect（v8.0 新增） |
 | `human_touch_rules` | ht_01~ht_06 人味注入规则摘要（v8.0 新增） |
 
@@ -168,11 +168,18 @@ orchestrator 会在调用时内联提供以下参数：
   → 确保跨卷实体（角色/地点/物品）的连续性和一致性
   → 核对归档快照与当前 kb_slice 间的差异，不得输出和当前快照矛盾的内容
 
-如果 dna_constraints 非空（v8.0 新增）：
+如果 dna_constraints 非空（v9.0 升级）：
   → 将DNA约束作为最高优先级执行——高于 clone_*.yaml、style_reference_snippets
-  → DO 列表中的句式/节奏/词汇偏好必须在正文中体现
+  → **sentence_architecture**（DO）：按约束中 `dominant_sentence_pattern` 的句型占比控制本章句式配比；`modifier_strategy` 约束修饰层数；`avg_sentence_length` / `length_variance` 控制节奏
+  → **lexical_structure**（DO）：按 `four_char_idiom_density` 控制四字格密度；遵守 `signature_word_clusters` 偏好；`adjective_stacking_pattern` 控制叠词形式
+  → **paragraph_architecture**（DO）：按 `internal_logic_pattern` 推进段内逻辑；`opening_sentence_function` / `closing_sentence_function` 控制段首尾功能；遵守段落节奏规律
+  → **logic_structure**（DO）：优先使用约束中的 `causal_chain_style`；按 `contrast_deployment` 部署对比手法
+  → **information_anchoring**（DO）：按 `result_first_vs_process_first` 值控制信息先后顺序；遵守 `exposition_embedding` 规定的背景嵌入方式
+  → **discourse_marker_stealth**（DO/DON'T）：`explicit_marker_density` 为上限，超出须择用 `marker_stealth_techniques` 替代；严格执行 `paragraph_bridge_style` 指定的段间衔接方式
+  → **cohesion_and_reference**（DO）：按 `zero_anaphora_frequency` 控制主语省略频率；遵守 `reference_chain_length` 上限（超限须重新具名）；使用 `synonym_substitution_richness` 指定的替换丰富度
+  → **punctuation_and_pause**（DO/DON'T）：按 `comma_rhythm_function` 分配逗号用途；`exclamation_density` 为感叹号上限；遵守 `sentence_break_vs_comma` 的断句偏好
   → DON'T 列表中的禁止项与禁用词速查（C 区）合并执行
-  → 标杆段落作为风格锚点，与 style_reference_snippets 并列（DNA优先）
+  → few_shot_anchors 标杆段落作为风格锚点，与 style_reference_snippets 并列（DNA优先）
 
 如果 emotional_temperature 非空（v8.0 新增）：
   → 读取当前温度等级（cold/warm/hot）及 writing_effect
@@ -288,11 +295,12 @@ Self_Audit 填写完毕后，输出以下分隔标记，然后才允许开始正
 
 遵循优先级：
 
-- 若 chapter_number <= 3：`dna_constraints > golden_opening > writing_rules > style_rules > content_limits`
-- 其他章节：`dna_constraints > writing_rules > style_rules > content_limits`
-- dna_constraints 存在时为最高优先级，不存在时跳过
+- 若 chapter_number <= 3：`dna_constraints（supreme）> golden_opening > writing_rules > style_rules > content_limits`
+- 其他章节：`dna_constraints（supreme）> writing_rules > style_rules > content_limits`
+- dna_constraints 存在时为 supreme 优先级，不存在时跳过；clone_* 为 high 级（低于 dna_constraints）
 
-- 字数：遵循 `state_config.reply_length`（A>=5000 / B>=4000 / C>=2500 / D>=2000）
+- 字数：遵循 `state_config.reply_length`（整数，表示"最小中文字符数"，默认 2000）
+- 字数统计基线：使用 `python scripts/chinese_char_count.py --input <chapter_file>` 统计中文字符，不使用英文单词计数或总字符计数替代
 - 当 `state_config.target_platform=fanqie` 时，推荐目标字数 2500-3500（非阻塞）
 - 对话生成：行为驱动 + 递归记忆（参考 kb_slice 中的角色对话风格）
 - 情节控制：流水线模式下严格执行场景规划中的冲突设计；互动模式下遵循 user_instruction 中的冲突方向
@@ -325,9 +333,29 @@ Self_Audit 填写完毕后，输出以下分隔标记，然后才允许开始正
 
 ### 5. HC1-HC6 自检
 
+#### 5.1 中文字数强制验收（HC1，必须执行）
+
+在进入 HC 总结前，必须执行以下脚本并读取结果（禁止估算）：
+
+```bash
+python scripts/chinese_char_count.py --input {project_dir}/chapters/chapter_{chapter_number}.md
+```
+
+执行规则：
+- 将脚本输出记为 `zh_char_count`（整数，仅中文字符数）
+- 读取 `state_config.reply_length` 作为门槛 `min_zh_chars`
+- 判定：`zh_char_count >= min_zh_chars` 才算通过
+- 若未通过：立即返回 HALT，禁止进入 KB diff、禁止返回 PASS/WARN
+
+HALT 返回格式（固定）：
+
+```
+✗ 第{N}章 HALT | HC1 触发：中文字数不达标（{zh_char_count} < {min_zh_chars}）
+```
+
 | 检查项 | 代码 | 检查内容 | 阈值/信号 |
 |--------|------|----------|-----------|
-| 字数达标率 | HC1 | 实际字数/预期字数 | = 1.0（必须达标） |
+| 字数达标率 | HC1 | 中文字数脚本实测值与门槛比较 | `zh_char_count >= state_config.reply_length` |
 | 内容截断 | HC2 | 是否在不自然的位置中断 | 句子完整性 |
 | 内容降级 | HC3 | 是否出现"此处省略"等 | 降级信号 |
 | 拒绝循环 | HC4 | 是否出现"我无法"等 | 拒绝信号 |
@@ -364,7 +392,7 @@ HC6 扩展扫描项：
 ### 8. 返回确认
 
 ```
-✓ 第{N}章「{标题}」完成 | {字数}字 | KB变更{N}项 | HC: {PASS/WARN}
+✓ 第{N}章「{标题}」完成 | 中文字数{zh_char_count} | KB变更{N}项 | HC: {PASS/WARN}
 ```
 
 如有 WARN，附加说明触发了哪个 HC。

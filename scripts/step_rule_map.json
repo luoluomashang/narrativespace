@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "version": "2.0",
+    "max_rules_per_step": 10,
+    "notes": "v10.0 sequence: project_card -> 4 -> 7 -> 8 -> 9 -> 10 -> 11. Legacy steps 1/2/2.5/3/5/6 removed."
+  },
+  "steps": {
+    "0": {
+      "module": "benchmark",
+      "rule_sources": [
+        {"file": "benchmark_triggers.yaml", "ids": []},
+        {"file": "meta_rules.yaml", "ids": ["meta_01", "ps_01", "ps_02", "ps_03", "ps_04", "ps_05"]}
+      ]
+    },
+    "project_card": {
+      "module": "planning",
+      "rule_sources": [
+        {"file": "workflow.yaml", "ids": []},
+        {"file": "meta_rules.yaml", "ids": ["meta_01", "meta_08", "meta_09", "meta_10"]}
+      ]
+    },
+    "4": {
+      "module": "planning",
+      "rule_sources": [
+        {"file": "workflow.yaml", "ids": []},
+        {"file": "methodology.yaml", "ids": []},
+        {"file": "meta_rules.yaml", "ids": ["meta_01", "meta_08"]}
+      ]
+    },
+    "7": {
+      "module": "knowledge-base",
+      "rule_sources": [
+        {"file": "meta_rules.yaml", "ids": ["meta_01", "ps_01", "ps_02", "ps_03", "ps_04", "ps_05"]}
+      ]
+    },
+    "8": {
+      "module": "scenes",
+      "rule_sources": [
+        {"file": "layer_definitions.yaml", "ids": []},
+        {"file": "meta_rules.yaml", "ids": ["meta_01", "meta_08"]}
+      ]
+    },
+    "9": {
+      "module": "scenes",
+      "rule_sources": [
+        {"file": "layer_definitions.yaml", "ids": []},
+        {"file": "meta_rules.yaml", "ids": ["meta_01", "meta_08"]}
+      ]
+    },
+    "10_pipeline": {
+      "module": "writing",
+      "rule_sources": [
+        {"file": "writing_rules.yaml", "ids": ["wr_01", "wr_02", "wr_03", "wr_07", "wr_08", "wr_10", "wr_11"]},
+        {"file": "meta_rules.yaml", "ids": ["meta_01", "ps_01", "ps_02", "ps_03", "ps_04", "ps_05"]},
+        {"file": "quality_dimensions.yaml", "ids": []}
+      ]
+    },
+    "10_interactive": {
+      "module": "interactive",
+      "rule_sources": [
+        {"file": "trpg_immersion.yaml", "ids": []},
+        {"file": "writing_rules.yaml", "ids": ["wr_10", "wr_11"]},
+        {"file": "meta_rules.yaml", "ids": ["meta_01", "ps_01", "ps_02", "ps_03", "ps_04", "ps_05"]}
+      ]
+    },
+    "11": {
+      "module": "planning",
+      "rule_sources": [
+        {"file": "meta_rules.yaml", "ids": ["meta_01", "ps_01", "ps_02", "ps_03", "ps_04", "ps_05"]}
+      ]
+    }
+  }
+}
