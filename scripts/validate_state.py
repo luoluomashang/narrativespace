@@ -13,10 +13,11 @@ from typing import Any
 
 ZH_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
 STEP_DEPENDENCIES = {
-    # humanizer uses a named step because it is an optional post-process hook, not a numbered pipeline step.
+    # Step 7 is the knowledge-base initialization step in the Lite pipeline.
     "7": ["project_card"],
     "8": ["volume_plan", "knowledge_base"],
     "10": ["knowledge_base", "scene_card", "summary_index"],
+    # humanizer uses a named step because it is an optional post-process hook, not a numbered pipeline step.
     "humanizer": ["chapter_file"],
 }
 
@@ -78,9 +79,9 @@ def validate(project_dir: Path, chapter: int | None, strict: bool, for_step: str
     dependency_checks = {
         "project_card": ((xushikj_dir / "outline" / "project_card.md").exists(), "Step 7 之前必须已有 project_card.md"),
         "volume_plan": ((xushikj_dir / "outline" / f"volume_{state.get('current_volume', 1)}_one_page.md").exists(), "Step 8 之前必须已有当前卷一页纲"),
-        "knowledge_base": (kb_path.exists(), f"Step {step} 缺少 knowledge_base.json" if step == "10" else "Step 8 之前必须已有 knowledge_base.json"),
-        "scene_card": (scene_path.exists(), f"Step 10 缺少章节卡: {scene_path}"),
-        "summary_index": (summary_path.exists(), "Step 10 缺少 summary_index.md"),
+        "knowledge_base": (kb_path.exists(), f"Step {step} 之前必须已有 knowledge_base.json" if step == "10" else "Step 8 之前必须已有 knowledge_base.json"),
+        "scene_card": (scene_path.exists(), f"Step 10 之前必须已有章节卡: {scene_path}"),
+        "summary_index": (summary_path.exists(), "Step 10 之前必须已有 summary_index.md"),
         "chapter_file": (chapter_path.exists(), f"Humanizer 缺少目标章节: {chapter_path}"),
     }
     for dependency in STEP_DEPENDENCIES.get(step, []):

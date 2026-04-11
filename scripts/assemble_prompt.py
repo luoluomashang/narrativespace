@@ -16,6 +16,7 @@ from kb_slicer import format_kb_slice, slice_kb
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = SKILL_ROOT / 'templates' / 'prompts'
 CONFIG_DIR = SKILL_ROOT / 'config'
+MAX_FOCUS_NAMES = 6
 
 RULE_FILES = {
     '0': ['meta_rules.yaml', 'benchmark_lite.yaml'],
@@ -110,7 +111,7 @@ def _extract_focus_names(scene_text: str) -> list[str]:
             cleaned = token.strip().strip("[]()（）\"' ")
             if cleaned and cleaned not in names:
                 names.append(cleaned)
-    return names[:6]
+    return names[:MAX_FOCUS_NAMES]
 
 
 def _load_style_snippet(xushikj_dir: Path) -> str:

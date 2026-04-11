@@ -63,8 +63,6 @@ def _merge_dict(defaults: dict[str, Any], existing: dict[str, Any]) -> dict[str,
     for key, value in existing.items():
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
             merged[key] = _merge_dict(merged[key], value)
-        elif isinstance(value, list) and isinstance(merged.get(key), list):
-            merged[key] = value
         else:
             merged[key] = value
     return merged
