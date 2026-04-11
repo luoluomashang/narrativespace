@@ -16,7 +16,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 def slice_kb(kb_path: Path, focus_names: list[str] | None = None) -> dict[str, Any]:
     kb = _read_json(kb_path)
-    focus_names = [name.strip() for name in (focus_names or []) if name.strip()]
+    focus_names = [cleaned for name in (focus_names or []) if (cleaned := name.strip())]
 
     characters = kb.get("characters", [])
     if not isinstance(characters, list):

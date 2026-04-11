@@ -52,10 +52,19 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _merge_dict(defaults: dict[str, Any], existing: dict[str, Any]) -> dict[str, Any]:
+    """Merge Lite defaults into an existing payload.
+
+    Dicts merge recursively. Lists are intentionally treated as user-owned content and
+    therefore replaced wholesale by the existing value instead of concatenating defaults.
+    When an existing key is absent, the default list remains in place.
+    Scalar values use the existing value whenever the key is present.
+    """
     merged = defaults.copy()
     for key, value in existing.items():
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
             merged[key] = _merge_dict(merged[key], value)
+        elif isinstance(value, list) and isinstance(merged.get(key), list):
+            merged[key] = value
         else:
             merged[key] = value
     return merged

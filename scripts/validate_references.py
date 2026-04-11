@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from assemble_prompt import TEMPLATES
+
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_MODULES = {
     "benchmark-lite",
@@ -52,15 +54,7 @@ def validate_all() -> bool:
         if version != root_version:
             issues.append(f"版本不一致: {module_name}={version}, root={root_version}")
 
-    required_templates = [
-        "step_0_benchmark_lite.md",
-        "step_project_card.md",
-        "step_4_one_page.md",
-        "step_7_kb.md",
-        "step_8_scene_card.md",
-        "step_10_writing.md",
-        "step_humanizer.md",
-    ]
+    required_templates = sorted(set(TEMPLATES.values()))
     prompt_root = SKILL_ROOT / "templates" / "prompts"
     for name in required_templates:
         if not (prompt_root / name).exists():

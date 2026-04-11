@@ -11,7 +11,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ZH_CHAR_RE = re.compile(r"[一-鿿]")
+ZH_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
+STEP_DEPENDENCIES = {
+    # humanizer uses a named step because it is an optional post-process hook, not a numbered pipeline step.
+    "7": ["project_card"],
+    "8": ["volume_plan", "knowledge_base"],
+    "10": ["knowledge_base", "scene_card", "summary_index"],
+    "humanizer": ["chapter_file"],
+}
 
 
 def _reconfigure_stdout_utf8() -> None:
@@ -68,22 +75,18 @@ def validate(project_dir: Path, chapter: int | None, strict: bool, for_step: str
     scene_path = xushikj_dir / "scenes" / f"chapter_{effective_chapter}.md"
     chapter_path = xushikj_dir / "chapters" / f"chapter_{effective_chapter}.md"
 
-    if step == "7" and not (xushikj_dir / "outline" / "project_card.md").exists():
-        errors.append("Step 7 之前必须已有 project_card.md")
-    if step == "8":
-        if not (xushikj_dir / "outline" / f"volume_{state.get('current_volume', 1)}_one_page.md").exists():
-            errors.append("Step 8 之前必须已有当前卷一页纲")
-        if not kb_path.exists():
-            errors.append("Step 8 之前必须已有 knowledge_base.json")
-    if step == "10":
-        if not kb_path.exists():
-            errors.append("Step 10 缺少 knowledge_base.json")
-        if not scene_path.exists():
-            errors.append(f"Step 10 缺少章节卡: {scene_path}")
-        if not summary_path.exists():
-            errors.append("Step 10 缺少 summary_index.md")
-    if step == "humanizer" and not chapter_path.exists():
-        errors.append(f"Humanizer 缺少目标章节: {chapter_path}")
+    dependency_checks = {
+        "project_card": ((xushikj_dir / "outline" / "project_card.md").exists(), "Step 7 之前必须已有 project_card.md"),
+        "volume_plan": ((xushikj_dir / "outline" / f"volume_{state.get('current_volume', 1)}_one_page.md").exists(), "Step 8 之前必须已有当前卷一页纲"),
+        "knowledge_base": (kb_path.exists(), f"Step {step} 缺少 knowledge_base.json" if step == "10" else "Step 8 之前必须已有 knowledge_base.json"),
+        "scene_card": (scene_path.exists(), f"Step 10 缺少章节卡: {scene_path}"),
+        "summary_index": (summary_path.exists(), "Step 10 缺少 summary_index.md"),
+        "chapter_file": (chapter_path.exists(), f"Humanizer 缺少目标章节: {chapter_path}"),
+    }
+    for dependency in STEP_DEPENDENCIES.get(step, []):
+        ok, message = dependency_checks[dependency]
+        if not ok:
+            errors.append(message)
 
     if chapter_path.exists() and min_chapter_chars is not None:
         zh_chars = _count_zh_chars(chapter_path.read_text(encoding="utf-8"))

@@ -7,7 +7,7 @@
   "writing_mode": "pipeline",
   "reply_length": 2500,
   "target_platform": "fanqie",
-  "benchmark_enabled": false,
+  "benchmark_lite_enabled": false,
   "last_updated": "",
   "active_style_profile": "",
   "last_completed_steps": [],

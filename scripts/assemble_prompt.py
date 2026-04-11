@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -98,17 +99,17 @@ def _project_context(xushikj_dir: Path, state: dict[str, Any]) -> str:
 
 
 def _extract_focus_names(scene_text: str) -> list[str]:
+    pattern = re.compile(r'^(viewpoint_character|kb_refs)\s*[:：]\s*(.+)$', re.IGNORECASE)
     names: list[str] = []
     for line in scene_text.splitlines():
-        lower = line.lower()
-        if any(key in lower for key in ['viewpoint_character', 'kb_refs']):
-            _, _, value = line.partition(':')
-            if not value:
-                _, _, value = line.partition('：')
-            for token in value.replace('/', '、').replace(',', '、').split('、'):
-                token = token.strip().strip('[]')
-                if token and token not in names:
-                    names.append(token)
+        match = pattern.match(line.strip())
+        if not match:
+            continue
+        raw_value = match.group(2)
+        for token in re.split(r'[、,/，]+', raw_value):
+            cleaned = token.strip().strip("[]()（）\"' ")
+            if cleaned and cleaned not in names:
+                names.append(cleaned)
     return names[:6]
 
 
