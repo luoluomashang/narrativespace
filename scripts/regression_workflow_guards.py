@@ -6,7 +6,6 @@ Lite workflow smoke regression.
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -29,7 +28,17 @@ def main() -> int:
     validate_script = scripts_dir / 'validate_state.py'
 
     project_dir = Path(args.project_dir).resolve()
-    rc_init, out_init = run_cmd([sys.executable, str(init_script), '--project-dir', str(project_dir), '--yes'])
+    rc_init, out_init = run_cmd([
+        sys.executable,
+        str(init_script),
+        '--project-dir',
+        str(project_dir),
+        '--yes',
+        '--reply-length',
+        '50',
+        '--target-platform',
+        'fanqie',
+    ])
     if rc_init != 0:
         print(out_init)
         return 1
@@ -53,11 +62,6 @@ def main() -> int:
         'kb_refs: 测试主角\n',
         encoding='utf-8',
     )
-    state_path = xushikj_dir / 'state.json'
-    state = json.loads(state_path.read_text(encoding='utf-8'))
-    state['reply_length'] = 50
-    state['target_platform'] = 'fanqie'
-    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (xushikj_dir / 'chapters').mkdir(parents=True, exist_ok=True)
     (xushikj_dir / 'chapters' / f'chapter_{args.chapter}.md').write_text('测试正文。' * 30, encoding='utf-8')
     benchmark_dir = xushikj_dir / 'benchmark' / 'style_snippets'
