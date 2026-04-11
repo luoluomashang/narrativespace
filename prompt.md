@@ -10,6 +10,10 @@
 ## 初始化守门
 - 若项目未初始化，先执行 `python scripts/init.py --project-dir <项目根目录> --yes`
 - humanizer 是唯一允许脱离 `.xushikj/` 单独使用的模块
+- 在进入 planning / scenes / writing 前，必须先向用户确认：
+  1. 每章最小中文字符数（reply_length）
+  2. 目标平台（target_platform）
+- 若 `state.json` 中这两个字段缺失，不得直接开始规划或写作
 
 ## 组装守门
 除 humanizer 外，进入任一步骤前都应先执行 `python scripts/assemble_prompt.py` 组装 Prompt。
@@ -22,3 +26,8 @@
 - scenes：step 8
 - writing：step 10
 - humanizer：章节定稿前润色
+
+## 写后验收
+- Step 10 正文落盘后，必须执行 `python scripts/validate_state.py --project-dir <项目根目录> --for-step 10 --chapter <N>`
+- `validate_state.py` 会调用 `scripts/chinese_char_count.py` 统计中文字符数
+- 若未达到 `reply_length`，禁止进入 summary / memory / state 推进

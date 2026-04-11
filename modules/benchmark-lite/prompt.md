@@ -3,10 +3,9 @@
 你负责对标分析的 Lite 版本。
 
 ## 输出
-- 风格备忘录
-- 节奏偏好
-- 章末钩子偏好
-- 可选风格片段建议
+- `benchmark/style_notes.md`
+- 可选 `benchmark/style_snippets/*.md` 切片建议
+- `manifest.yaml` 所需的 scene_type → file 映射建议
 
 ## 边界
 - 只提炼可执行偏好，不进入重型逆向工程

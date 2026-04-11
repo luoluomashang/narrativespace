@@ -19,6 +19,35 @@ EXPECTED_MODULES = {
     "writing",
     "humanizer",
 }
+EXPECTED_PROMPT_TEMPLATES = {
+    "step_0_benchmark_lite.md",
+    "step_4_one_page.md",
+    "step_7_kb.md",
+    "step_8_scene_card.md",
+    "step_10_writing.md",
+    "step_humanizer.md",
+    "step_project_card.md",
+}
+EXPECTED_CONFIGS = {
+    "benchmark_lite.yaml",
+    "human_touch_rules.yaml",
+    "meta_rules.yaml",
+    "style_rules.yaml",
+    "workflow.yaml",
+    "writing_rules.yaml",
+}
+EXPECTED_SCRIPTS = {
+    "analyze_dna.py",
+    "assemble_prompt.py",
+    "chinese_char_count.py",
+    "init.py",
+    "kb_slicer.py",
+    "regression_workflow_guards.py",
+    "slice_library.py",
+    "update_skill_metadata.py",
+    "validate_references.py",
+    "validate_state.py",
+}
 
 
 def _extract_version(text: str) -> str | None:
@@ -59,18 +88,25 @@ def validate_all() -> bool:
     for name in required_templates:
         if not (prompt_root / name).exists():
             issues.append(f"缺少 Prompt 模板: templates/prompts/{name}")
+    active_templates = {path.name for path in prompt_root.iterdir() if path.is_file()}
+    extra_templates = active_templates - EXPECTED_PROMPT_TEMPLATES
+    if extra_templates:
+        issues.append(f"templates/prompts 存在未清理旧模板: {sorted(extra_templates)}")
 
-    required_configs = [
-        "workflow.yaml",
-        "meta_rules.yaml",
-        "writing_rules.yaml",
-        "style_rules.yaml",
-        "benchmark_lite.yaml",
-    ]
     config_root = SKILL_ROOT / "config"
-    for name in required_configs:
+    for name in sorted(EXPECTED_CONFIGS - {"human_touch_rules.yaml"}):
         if not (config_root / name).exists():
             issues.append(f"缺少配置文件: config/{name}")
+    active_configs = {path.name for path in config_root.iterdir() if path.is_file()}
+    extra_configs = active_configs - EXPECTED_CONFIGS
+    if extra_configs:
+        issues.append(f"config/ 存在未清理旧配置: {sorted(extra_configs)}")
+
+    scripts_root = SKILL_ROOT / "scripts"
+    active_scripts = {path.name for path in scripts_root.iterdir() if path.is_file()}
+    extra_scripts = active_scripts - EXPECTED_SCRIPTS
+    if extra_scripts:
+        issues.append(f"scripts/ 存在未清理旧脚本: {sorted(extra_scripts)}")
 
     print("=" * 60)
     print("Lite references validation")

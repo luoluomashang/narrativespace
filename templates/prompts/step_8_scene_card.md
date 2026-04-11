@@ -14,6 +14,8 @@
 
 ## 每张章节卡必须包含
 - chapter_number
+- scene_type
+- scene_intensity
 - viewpoint_character
 - chapter_goal
 - external_conflict
@@ -21,5 +23,9 @@
 - key_progression
 - ending_hook
 - kb_refs
+
+其中：
+- `scene_type` 必须从 `combat / face_slap / negotiation / emotional / reveal / daily / system` 中选择
+- `scene_intensity` 使用 `low / medium / high`
 
 只输出章节卡正文。

@@ -5,17 +5,30 @@
   "current_volume": 1,
   "current_chapter": 1,
   "writing_mode": "pipeline",
-  "reply_length": 2500,
-  "target_platform": "fanqie",
+  "reply_length": null,
+  "target_platform": "",
   "benchmark_lite_enabled": false,
   "last_updated": "",
   "active_style_profile": "",
   "last_completed_steps": [],
+  "benchmark_state": {
+    "linked_author": "",
+    "style_library_path": "~/.narrativespace/style_library",
+    "style_notes_path": "benchmark/style_notes.md",
+    "style_snippet_manifest": "benchmark/style_snippets/manifest.yaml"
+  },
+  "memory_state": {
+    "summary_mode": "tiered",
+    "memory_file": "memory.md"
+  },
   "recent_outputs": {
+    "style_notes": "benchmark/style_notes.md",
     "project_card": "outline/project_card.md",
     "volume_one_page": "outline/volume_1_one_page.md",
     "knowledge_base": "knowledge_base.json",
     "latest_scene_card": "scenes/chapter_1.md",
-    "latest_chapter": "chapters/chapter_1.md"
+    "latest_chapter": "chapters/chapter_1.md",
+    "summary_index": "summaries/summary_index.md",
+    "memory": "memory.md"
   }
 }

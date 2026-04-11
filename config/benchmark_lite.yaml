@@ -3,10 +3,12 @@ benchmark_lite:
   goals:
     - 提炼题材节奏、叙事气质、章节钩子偏好
     - 允许保留少量风格切片作为写作参考
+    - 输出可直接落盘到 benchmark/style_notes.md 的轻量风格备忘
   outputs:
-    - 风格备忘录
-    - 可选场景风格片段
+    - benchmark/style_notes.md
+    - benchmark/style_snippets/*.md（可选）
+    - benchmark/style_snippets/manifest.yaml（可选）
   constraints:
-    - 不做 DNA 提取
+    - 不做重型 DNA 提取
     - 不做 clone prompt
-    - 不依赖全局 style library
+    - 可选调用 scripts/slice_library.py 将原文切片落到本地 style_snippets

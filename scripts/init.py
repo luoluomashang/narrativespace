@@ -24,6 +24,7 @@ OPTIONAL_CONFIGS = ['human_touch_rules.yaml']
 TEXT_TEMPLATES = {
     'summaries/summary_index.md': SKILL_ROOT / 'templates' / 'summary_index_template.md',
     'memory.md': SKILL_ROOT / 'templates' / 'memory_template.md',
+    'benchmark/style_notes.md': SKILL_ROOT / 'templates' / 'style_notes_template.md',
 }
 JSON_TEMPLATES = {
     'state.json': SKILL_ROOT / 'templates' / 'state_template.json',
@@ -74,6 +75,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--upgrade', action='store_true', help='Merge new Lite defaults into an existing project')
     parser.add_argument('--force', action='store_true', help='Overwrite generated Lite files')
     parser.add_argument('--yes', '-y', action='store_true', help='Reserved for non-interactive compatibility')
+    parser.add_argument('--reply-length', type=int, help='Minimum Chinese characters required for each chapter')
+    parser.add_argument('--target-platform', type=str, help='Target publishing platform, e.g. fanqie')
     parser.add_argument('--build-rag-index', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--init-volume-timeline', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--volume', type=int, default=1, help=argparse.SUPPRESS)
@@ -145,6 +148,27 @@ def write_json_templates(xushikj_dir: Path, force: bool, upgrade: bool) -> list[
     return log
 
 
+def apply_state_overrides(xushikj_dir: Path, reply_length: int | None, target_platform: str | None) -> list[str]:
+    state_path = xushikj_dir / 'state.json'
+    if not state_path.exists():
+        return []
+
+    state = _read_json(state_path)
+    log: list[str] = []
+    if reply_length is not None:
+        if reply_length <= 0:
+            raise ValueError('reply_length must be a positive integer')
+        state['reply_length'] = reply_length
+        log.append(f'  [set]     state.reply_length={reply_length}')
+    if target_platform is not None:
+        normalized = target_platform.strip()
+        state['target_platform'] = normalized
+        log.append(f'  [set]     state.target_platform={normalized}')
+    state['last_updated'] = _now_iso()
+    _write_json(state_path, state)
+    return log
+
+
 def main() -> int:
     _reconfigure_stdout_utf8()
     args = build_arg_parser().parse_args()
@@ -157,8 +181,11 @@ def main() -> int:
     log.extend(copy_configs(xushikj_dir, force=args.force or args.upgrade))
     log.extend(write_text_templates(xushikj_dir, force=args.force))
     log.extend(write_json_templates(xushikj_dir, force=args.force, upgrade=args.upgrade))
+    log.extend(apply_state_overrides(xushikj_dir, args.reply_length, args.target_platform))
 
     print(f'[init] Lite project ready: {xushikj_dir}')
+    if args.reply_length is None or not args.target_platform:
+        print('[init] reminder: 请在进入 planning / writing 前明确确认 reply_length 与 target_platform。')
     for line in log:
         print(line)
     return 0

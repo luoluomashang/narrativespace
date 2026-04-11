@@ -6,6 +6,7 @@ Lite workflow smoke regression.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -41,6 +42,8 @@ def main() -> int:
     (xushikj_dir / 'scenes').mkdir(parents=True, exist_ok=True)
     (xushikj_dir / 'scenes' / f'chapter_{args.chapter}.md').write_text(
         'chapter_number: 1\n'
+        'scene_type: daily\n'
+        'scene_intensity: medium\n'
         'viewpoint_character: 测试主角\n'
         'chapter_goal: 通过烟雾测试\n'
         'external_conflict: 工具链校验\n'
@@ -48,6 +51,25 @@ def main() -> int:
         'key_progression: 生成一版可直接使用的 Lite 产物\n'
         'ending_hook: 下一章开始真实写作\n'
         'kb_refs: 测试主角\n',
+        encoding='utf-8',
+    )
+    state_path = xushikj_dir / 'state.json'
+    state = json.loads(state_path.read_text(encoding='utf-8'))
+    state['reply_length'] = 50
+    state['target_platform'] = 'fanqie'
+    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    (xushikj_dir / 'chapters').mkdir(parents=True, exist_ok=True)
+    (xushikj_dir / 'chapters' / f'chapter_{args.chapter}.md').write_text('测试正文。' * 30, encoding='utf-8')
+    benchmark_dir = xushikj_dir / 'benchmark' / 'style_snippets'
+    benchmark_dir.mkdir(parents=True, exist_ok=True)
+    (xushikj_dir / 'benchmark' / 'style_notes.md').write_text('题材气质：轻快升级流\n', encoding='utf-8')
+    (benchmark_dir / 'daily_sample.md').write_text('他抬手推门，潮湿的风立刻灌进走廊。', encoding='utf-8')
+    (benchmark_dir / 'manifest.yaml').write_text(
+        'snippets:\n'
+        '  daily:\n'
+        '    files:\n'
+        '      - daily_sample.md\n'
+        '    count: 1\n',
         encoding='utf-8',
     )
 

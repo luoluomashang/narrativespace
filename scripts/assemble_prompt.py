@@ -13,6 +13,12 @@ from typing import Any
 
 from kb_slicer import format_kb_slice, slice_kb
 
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = SKILL_ROOT / 'templates' / 'prompts'
 CONFIG_DIR = SKILL_ROOT / 'config'
@@ -56,6 +62,23 @@ def _read_text(path: Path, default: str = '（暂无）') -> str:
     return path.read_text(encoding='utf-8').strip() or default
 
 
+def _load_yaml_or_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, Any]:
+    fallback = default or {}
+    if not path.exists():
+        return fallback
+    raw = path.read_text(encoding='utf-8').strip()
+    if not raw:
+        return fallback
+    try:
+        if YAML_AVAILABLE:
+            payload = yaml.safe_load(raw)
+        else:
+            payload = json.loads(raw)
+    except Exception:
+        return fallback
+    return payload if isinstance(payload, dict) else fallback
+
+
 def _resolve_paths(project_dir: Path) -> tuple[Path, Path]:
     project_dir = project_dir.resolve()
     if project_dir.name == '.xushikj':
@@ -81,7 +104,8 @@ def _load_rules(step: str) -> str:
 
 
 def _recent_summaries(xushikj_dir: Path) -> str:
-    return _read_text(xushikj_dir / 'summaries' / 'summary_index.md')
+    summary_path = xushikj_dir / 'summaries' / 'summary_index.md'
+    return _compress_summary_index(_read_text(summary_path))
 
 
 def _project_name(state: dict[str, Any], project_root: Path) -> str:
@@ -96,7 +120,69 @@ def _project_context(xushikj_dir: Path, state: dict[str, Any]) -> str:
         parts.append('## 已有立项卡\n' + _read_text(project_card))
     if state.get('active_style_profile'):
         parts.append(f"## 当前风格\n{state['active_style_profile']}")
+    reply_length = state.get('reply_length')
+    target_platform = state.get('target_platform')
+    parts.append(
+        '## 当前写作硬约束\n'
+        f"- 每章最小中文字符数：{reply_length if reply_length else '（待确认）'}\n"
+        f"- 目标平台：{target_platform if target_platform else '（待确认）'}"
+    )
+    style_notes = xushikj_dir / 'benchmark' / 'style_notes.md'
+    if style_notes.exists():
+        parts.append('## 对标风格备忘\n' + _read_text(style_notes))
     return '\n\n'.join(parts) if parts else '（由用户在当前步骤补充）'
+
+
+def _compress_memory_hint(line: str, limit: int = 42) -> str:
+    stripped = re.sub(r'\s+', ' ', line).strip()
+    if len(stripped) <= limit:
+        return stripped
+    return stripped[:limit].rstrip('，,；;。.!?？') + '…'
+
+
+def _compress_summary_index(summary_text: str) -> str:
+    if summary_text in {'', '（暂无）'}:
+        return '（暂无）'
+
+    lines = summary_text.splitlines()
+    sections: list[tuple[str, list[str]]] = []
+    current_title = ''
+    current_lines: list[str] = []
+
+    for line in lines:
+        if line.startswith('## '):
+            if current_title or current_lines:
+                sections.append((current_title, current_lines))
+            current_title = line
+            current_lines = []
+            continue
+        current_lines.append(line)
+    if current_title or current_lines:
+        sections.append((current_title, current_lines))
+
+    if not sections:
+        return '\n'.join(lines[-20:]).strip() or '（暂无）'
+
+    rendered: list[str] = []
+    for title, body_lines in sections:
+        body = [line for line in body_lines if line.strip()]
+        if title == '## 最近章节摘要':
+            entries = [line for line in body if line.lstrip().startswith('-')]
+            if len(entries) > 3:
+                earlier = entries[:-3]
+                recent = entries[-3:]
+                compressed_earlier = [f"- {_compress_memory_hint(line[1:].strip())}" for line in earlier]
+                if title:
+                    rendered.append(title)
+                rendered.extend(recent)
+                rendered.append('')
+                rendered.append('## 压缩前情')
+                rendered.extend(compressed_earlier[-7:])
+                continue
+        if title:
+            rendered.append(title)
+        rendered.extend(body or ['- （暂无）'])
+    return '\n'.join(rendered).strip() or '（暂无）'
 
 
 def _extract_focus_names(scene_text: str) -> list[str]:
@@ -114,12 +200,71 @@ def _extract_focus_names(scene_text: str) -> list[str]:
     return names[:MAX_FOCUS_NAMES]
 
 
-def _load_style_snippet(xushikj_dir: Path) -> str:
+def _parse_scene_fields(scene_text: str) -> dict[str, str]:
+    scene_fields: dict[str, str] = {}
+    for line in scene_text.splitlines():
+        if ':' not in line and '：' not in line:
+            continue
+        separator = ':' if ':' in line else '：'
+        key, value = line.split(separator, 1)
+        scene_fields[key.strip().lower()] = value.strip()
+    return scene_fields
+
+
+def _strip_yaml_frontmatter(text: str) -> str:
+    if text.startswith('---'):
+        end = text.find('\n---', 3)
+        if end != -1:
+            return text[end + 4:].lstrip('\n')
+    return text
+
+
+def _load_style_snippet(xushikj_dir: Path, scene_text: str) -> str:
     snippet_dir = xushikj_dir / 'benchmark' / 'style_snippets'
-    snippets = sorted(snippet_dir.glob('*.md')) if snippet_dir.exists() else []
-    if not snippets:
+    manifest_path = snippet_dir / 'manifest.yaml'
+    scene_meta = _parse_scene_fields(scene_text)
+    preferred_scene_type = scene_meta.get('scene_type', 'daily').strip().lower() or 'daily'
+    scene_intensity = scene_meta.get('scene_intensity', 'medium').strip() or 'medium'
+
+    if not snippet_dir.exists():
         return '（无风格片段，可直接按规则写作）'
-    return _read_text(snippets[0])
+
+    manifest = _load_yaml_or_json(manifest_path, {'snippets': {}})
+    snippets_by_type = manifest.get('snippets', {})
+    selected_path: Path | None = None
+    selected_scene_type = preferred_scene_type
+
+    if isinstance(snippets_by_type, dict):
+        for scene_type in [preferred_scene_type, 'daily']:
+            payload = snippets_by_type.get(scene_type, {})
+            if isinstance(payload, dict):
+                files = payload.get('files', [])
+                if isinstance(files, list):
+                    for filename in files:
+                        candidate = snippet_dir / str(filename)
+                        if candidate.exists():
+                            selected_path = candidate
+                            selected_scene_type = scene_type
+                            break
+            if selected_path is not None:
+                break
+
+    if selected_path is None:
+        snippets = sorted(snippet_dir.glob('*.md'))
+        if not snippets:
+            return '（无风格片段，可直接按规则写作）'
+        selected_path = snippets[0]
+        selected_scene_type = 'fallback'
+
+    snippet_body = _strip_yaml_frontmatter(_read_text(selected_path))
+    return (
+        f"> 风格切片来源：scene_type={selected_scene_type} / intensity={scene_intensity} / file={selected_path.name}\n"
+        f"{snippet_body}"
+    )
+
+
+def _memory_context(xushikj_dir: Path) -> str:
+    return _read_text(xushikj_dir / 'memory.md')
 
 
 def _render(template: str, values: dict[str, str]) -> str:
@@ -143,8 +288,12 @@ def _status(project_root: Path, xushikj_dir: Path) -> str:
         f"current_volume={state.get('current_volume', 1)}",
         f"current_chapter={state.get('current_chapter', 1)}",
         f"writing_mode={state.get('writing_mode', 'pipeline')}",
+        f"reply_length={state.get('reply_length', '')}",
+        f"target_platform={state.get('target_platform', '')}",
         f'scene_card_exists={scene_path.exists()}',
         f'chapter_exists={chapter_path.exists()}',
+        f"style_notes_exists={(xushikj_dir / 'benchmark' / 'style_notes.md').exists()}",
+        f"style_manifest_exists={(xushikj_dir / 'benchmark' / 'style_snippets' / 'manifest.yaml').exists()}",
     ])
 
 
@@ -168,6 +317,7 @@ def assemble(project_dir: Path, step: str, chapter: int | None) -> str:
     chapter_label = f'第 {chapter_no} 章'
     scene_path = xushikj_dir / 'scenes' / f'chapter_{chapter_no}.md'
     scene_card = _read_text(scene_path)
+    scene_meta = _parse_scene_fields(scene_card)
     focus_names = _extract_focus_names(scene_card)
 
     kb_slice_text = '（知识库缺失）'
@@ -183,6 +333,7 @@ def assemble(project_dir: Path, step: str, chapter: int | None) -> str:
         'project_name': project_name,
         'project_context': _project_context(xushikj_dir, state),
         'recent_summaries': summary_text,
+        'memory_context': _memory_context(xushikj_dir),
         'rules': _load_rules(step),
         'project_card': project_card,
         'volume_plan': volume_plan,
@@ -190,7 +341,11 @@ def assemble(project_dir: Path, step: str, chapter: int | None) -> str:
         'kb_slice': kb_slice_text,
         'chapter_label': chapter_label,
         'scene_card': scene_card,
-        'style_snippet': _load_style_snippet(xushikj_dir),
+        'scene_type': scene_meta.get('scene_type', 'daily') or 'daily',
+        'scene_intensity': scene_meta.get('scene_intensity', 'medium') or 'medium',
+        'reply_length': str(state.get('reply_length') or '（待确认）'),
+        'target_platform': str(state.get('target_platform') or '（待确认）'),
+        'style_snippet': _load_style_snippet(xushikj_dir, scene_card),
         'chapter_text': _read_text(chapter_path),
     }
     return _render(template, values)

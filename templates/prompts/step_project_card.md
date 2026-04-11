@@ -6,6 +6,8 @@
 - 项目名：{{project_name}}
 - 用户已知设定：{{project_context}}
 - 最近摘要：{{recent_summaries}}
+- 目标平台：{{target_platform}}
+- 每章最小中文字符数：{{reply_length}}
 
 ## 规则
 {{rules}}

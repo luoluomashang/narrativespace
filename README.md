@@ -14,7 +14,7 @@
 
 ## 快速开始
 ```bash
-python scripts/init.py --project-dir /your/project --yes
+python scripts/init.py --project-dir /your/project --yes --reply-length 2500 --target-platform fanqie
 python scripts/assemble_prompt.py --project-dir /your/project --status
 python scripts/assemble_prompt.py --project-dir /your/project --step project_card
 ```
@@ -29,6 +29,18 @@ python scripts/assemble_prompt.py --project-dir /your/project --step project_car
 ## 可选流程
 - `0`：benchmark-lite
 - `humanizer`：定稿润色
+
+## Lite Pro 补强
+- Step 0 支持 `benchmark/style_notes.md` + 本地 `style_snippets/manifest.yaml`
+- Step 10 会读取 `summary_index.md` + `memory.md` + 场景类型驱动的风格切片
+- 正文落盘后需执行：
+  ```bash
+  python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1
+  ```
+  该脚本会调用 `scripts/chinese_char_count.py` 做最小中文字符数强校验
+
+## 历史资产
+- 已退出 Lite 主流程的旧模板、旧配置、旧脚本会迁入 `legacy/`，避免继续污染当前运行时入口
 
 ## 验证命令
 ```bash
