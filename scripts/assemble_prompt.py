@@ -23,6 +23,7 @@ SKILL_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = SKILL_ROOT / 'templates' / 'prompts'
 CONFIG_DIR = SKILL_ROOT / 'config'
 MAX_FOCUS_NAMES = 6
+MAX_COMPRESSED_HINT_CHARS = 42
 EMPTY_PLACEHOLDER = '（暂无）'
 
 RULE_FILES = {
@@ -122,7 +123,7 @@ def _project_context(xushikj_dir: Path, state: dict[str, Any]) -> str:
     return '\n\n'.join(parts) if parts else '（由用户在当前步骤补充）'
 
 
-def _compress_memory_hint(line: str, max_chars: int = 42) -> str:
+def _compress_memory_hint(line: str, max_chars: int = MAX_COMPRESSED_HINT_CHARS) -> str:
     stripped = re.sub(r'\s+', ' ', line).strip()
     if len(stripped) <= max_chars:
         return stripped
