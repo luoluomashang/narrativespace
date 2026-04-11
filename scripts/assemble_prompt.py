@@ -134,11 +134,11 @@ def _project_context(xushikj_dir: Path, state: dict[str, Any]) -> str:
     return '\n\n'.join(parts) if parts else '（由用户在当前步骤补充）'
 
 
-def _compress_memory_hint(line: str, limit: int = 42) -> str:
+def _compress_memory_hint(line: str, max_chars: int = 42) -> str:
     stripped = re.sub(r'\s+', ' ', line).strip()
-    if len(stripped) <= limit:
+    if len(stripped) <= max_chars:
         return stripped
-    return stripped[:limit].rstrip('，,；;。.!?？') + '…'
+    return stripped[:max_chars].rstrip('，,；;。.!?？') + '…'
 
 
 def _compress_summary_index(summary_text: str) -> str:
@@ -204,9 +204,10 @@ def _extract_focus_names(scene_text: str) -> list[str]:
 def _parse_scene_fields(scene_text: str) -> dict[str, str]:
     scene_fields: dict[str, str] = {}
     for line in scene_text.splitlines():
-        if ':' not in line and '：' not in line:
+        matches = re.search(r'[:：]', line)
+        if matches is None:
             continue
-        separator = ':' if ':' in line else '：'
+        separator = matches.group(0)
         key, value = line.split(separator, 1)
         scene_fields[key.strip().lower()] = value.strip()
     return scene_fields
