@@ -18,8 +18,9 @@ from workflow_state import ensure_workflow_state
 PLACEHOLDER = '（待填写）'
 STEP_DEPENDENCIES = {
     'worldbuilding': ['benchmark'],
-    'chapter-outline': ['benchmark', 'worldview'],
-    '10': ['benchmark', 'worldview', 'chapter_outline', 'reply_length'],
+    'characters': ['benchmark', 'worldview'],
+    'chapter-outline': ['benchmark', 'worldview', 'characters'],
+    '10': ['benchmark', 'worldview', 'characters', 'chapter_outline', 'reply_length'],
     'humanizer': ['chapter_file'],
 }
 
@@ -75,9 +76,17 @@ def _ready_text_file(path: Path) -> bool:
     if not path.exists():
         return False
     text = path.read_text(encoding='utf-8-sig', errors='replace').strip()
-    if not text:
+    return bool(text) and PLACEHOLDER not in text
+
+
+def _ready_character_cards(path: Path) -> bool:
+    if not path.exists():
         return False
-    return PLACEHOLDER not in text
+    for card_path in sorted(path.glob('*.md')):
+        text = card_path.read_text(encoding='utf-8-sig', errors='replace').strip()
+        if text and PLACEHOLDER not in text:
+            return True
+    return False
 
 
 def validate(
@@ -138,10 +147,12 @@ def validate(
     chapter_path = _resolve_humanizer_chapter_path(project_dir, effective_chapter, chapter_file) if step == 'humanizer' else xushikj_dir / 'chapters' / f'chapter_{effective_chapter}.md'
     benchmark_path = xushikj_dir / 'benchmark' / 'style_notes.md'
     worldview_path = xushikj_dir / 'worldbuilding' / 'worldview.md'
+    characters_dir = xushikj_dir / 'outline' / 'characters'
 
     dependency_checks = {
         'benchmark': (_ready_text_file(benchmark_path), f'进入 {step or "当前步骤"} 前必须先完成 benchmark-lite：{benchmark_path}'),
         'worldview': (_ready_text_file(worldview_path), f'进入 {step or "当前步骤"} 前必须先完成世界观设定：{worldview_path}'),
+        'characters': (_ready_character_cards(characters_dir), f'进入 {step or "当前步骤"} 前必须先完成人物卡片设定：{characters_dir}'),
         'chapter_outline': (_ready_text_file(outline_path), f'Step 10 之前必须已有章纲讨论结果：{outline_path}'),
         'chapter_file': (chapter_path.exists(), f'Humanizer 缺少目标章节: {chapter_path}'),
         'reply_length': (isinstance(state.get('reply_length'), int) and int(state.get('reply_length')) > 0, '进入正文写作前必须先确认 reply_length'),
@@ -190,7 +201,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--project-dir', required=True, type=Path)
     parser.add_argument('--chapter', type=int)
     parser.add_argument('--strict', action='store_true')
-    parser.add_argument('--for-step', help='Optional target step: worldbuilding / chapter-outline / 10 / humanizer')
+    parser.add_argument('--for-step', help='Optional target step: worldbuilding / characters / chapter-outline / 10 / humanizer')
     parser.add_argument('--for-step10', action='store_true', help='Compatibility alias for --for-step 10')
     parser.add_argument('--min-chapter-chars', type=int)
     parser.add_argument('--chapter-file', type=Path, help='Optional standalone chapter file for humanizer')

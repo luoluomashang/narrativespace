@@ -17,6 +17,8 @@
 - 当前项目上下文：{{project_context}}
 - 文风特征指南：{{style_guide}}
 - 世界观与力量体系设定：{{worldview_text}}
+- 相关人物卡片：
+{{character_cards}}
 - 最近摘要：{{recent_summaries}}
 - 目标章节：{{chapter_label}}
 - 现有章纲草稿：{{chapter_outline}}
@@ -33,5 +35,3 @@
 6. 结尾钩子
 7. 本章必须写出的信息
 8. 本章必须避免的偏移
-
-只输出章纲正文。

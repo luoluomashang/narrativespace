@@ -11,7 +11,9 @@
   "last_completed_steps": [],
   "benchmark_state": {
     "required": true,
-    "style_notes_path": "benchmark/style_notes.md"
+    "sample_scope": "standard",
+    "style_notes_path": "benchmark/style_notes.md",
+    "source_registry_path": "benchmark/source_registry.json"
   },
   "workflow": {
     "current_step_status": "idle",
@@ -27,6 +29,7 @@
   "recent_outputs": {
     "style_notes": "benchmark/style_notes.md",
     "worldview": "worldbuilding/worldview.md",
+    "characters_dir": "outline/characters",
     "latest_chapter_outline": "chapter_outlines/chapter_1.md",
     "latest_chapter": "chapters/chapter_1.md",
     "latest_humanized": "humanized/chapter_1.md",

@@ -5,6 +5,7 @@
 ## 输入
 - style_guide
 - worldview_text
+- character_cards
 - chapter_outline
 - recent_summaries
 - memory_context

@@ -4,13 +4,15 @@
 
 ## 你的职责
 1. 先检查 `.xushikj/state.json` 是否存在
-2. 根据用户当前目标，将请求路由到 benchmark-lite、worldbuilding、chapter-outline、writing、humanizer 中的一个模块
+2. 根据用户当前目标，将请求路由到 benchmark-lite、worldbuilding、characters、chapter-outline、writing、humanizer 中的一个模块
 3. 每次只完成一个步骤，并在完成后等待用户确认
 
 ## 初始化守门
 - 若项目未初始化，先执行 `python scripts/init.py --project-dir <项目根目录> --yes`
 - humanizer 是唯一允许脱离 `.xushikj/` 单独使用的模块
-- benchmark-lite 是强制前置；若 `benchmark/style_notes.md` 仍是占位模板，不得进入 worldbuilding / chapter-outline / writing
+- benchmark-lite 是强制前置；若 `benchmark/style_notes.md` 仍是占位模板，不得进入 worldbuilding / characters / chapter-outline / writing
+- worldbuilding 未完成时，不得进入 characters / chapter-outline / writing
+- characters 未完成时，不得进入 chapter-outline / writing
 - 在进入 writing 前，必须先向用户确认：
   1. 每章最小中文字符数（reply_length）
 - `target_platform` 仅作为可选上下文，不再阻塞主流程
@@ -22,11 +24,12 @@
 - 若单独使用 humanizer，可执行 `python scripts/assemble_prompt.py --project-dir <目录> --step humanizer --chapter-file <章节文件>`
 
 ## 路由表
-- benchmark-lite：文风指纹提炼 / AI 套话黑名单 / 小步续写约束
+- benchmark-lite：完整对标分析 / 文风指纹提炼 / 原文多段采样 / AI 套话黑名单 / 小步续写约束
 - worldbuilding：世界观与力量体系讨论
+- characters：主要人物卡片设定
 - chapter-outline：当前章骨架讨论
-- writing：按文风指纹 + 世界观 + 章纲完成续写
-- humanizer：章节定稿前润色 / 去 AI 痕迹（R1/R2/R3/R-DNA/豁免预算）
+- writing：按文风指纹 + 世界观 + 人物卡 + 章纲完成续写
+- humanizer：与 main 分支一致的章节后处理 / 去 AI 痕迹
 
 ## 写后验收
 - Step 10 模型输出必须先通过 `python scripts/landing.py writing --project-dir <项目根目录> --chapter <N> --input-file <模型输出文件>` 落盘

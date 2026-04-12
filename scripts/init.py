@@ -71,6 +71,7 @@ def ensure_dirs(xushikj_dir: Path) -> None:
         'config',
         'benchmark',
         'worldbuilding',
+        'outline/characters',
         'chapter_outlines',
         'chapters',
         'summaries',

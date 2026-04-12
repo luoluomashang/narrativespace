@@ -15,7 +15,8 @@ from encoding_utils import read_json_utf8, reconfigure_stdio_utf8, write_text_ut
 
 DEFAULT_NEXT_STEP = {
     'benchmark-lite': 'worldbuilding',
-    'worldbuilding': 'chapter-outline',
+    'worldbuilding': 'characters',
+    'characters': 'chapter-outline',
     'chapter-outline': '10',
     '10': 'humanizer',
     'humanizer': '',

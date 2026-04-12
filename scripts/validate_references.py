@@ -15,6 +15,7 @@ SKILL_ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_MODULES = {
     'benchmark-lite',
     'worldbuilding',
+    'characters',
     'chapter-outline',
     'writing',
     'humanizer',
@@ -22,6 +23,7 @@ EXPECTED_MODULES = {
 EXPECTED_PROMPT_TEMPLATES = {
     'step_0_benchmark_lite.md',
     'step_worldbuilding.md',
+    'step_characters.md',
     'step_chapter_outline.md',
     'step_10_writing.md',
     'step_humanizer.md',
@@ -53,6 +55,7 @@ EXPECTED_SCRIPTS = {
 EXPECTED_ROLE_HEADINGS = {
     'step_0_benchmark_lite.md': '## 模块身份',
     'step_worldbuilding.md': '## 模块身份',
+    'step_characters.md': '## 模块身份',
     'step_chapter_outline.md': '## 模块身份',
     'step_10_writing.md': '## 模块身份',
     'step_humanizer.md': '## 模块身份',
@@ -125,50 +128,52 @@ def validate_all() -> bool:
         issues.append(f'scripts/ 存在未清理旧脚本: {sorted(extra_scripts)}')
 
     root_prompt_text = read_text_utf8(SKILL_ROOT / 'prompt.md', '')
-    if 'benchmark-lite、worldbuilding、chapter-outline、writing、humanizer' not in root_prompt_text:
+    if 'benchmark-lite、worldbuilding、characters、chapter-outline、writing、humanizer' not in root_prompt_text:
         issues.append('prompt.md 路由表未保持 Lite active 模块口径')
     if 'benchmark-lite 是强制前置' not in root_prompt_text:
         issues.append('prompt.md 缺少 benchmark 强制前置口径')
-    if 'reply_length' not in root_prompt_text:
-        issues.append('prompt.md 缺少 writing 字数下限门禁口径')
+    if 'characters 未完成时' not in root_prompt_text:
+        issues.append('prompt.md 缺少人物卡门禁口径')
     if 'humanizer 是唯一允许脱离 `.xushikj/` 单独使用的模块' not in root_prompt_text:
         issues.append('prompt.md 缺少 humanizer 独立使用口径')
     if 'python scripts/landing.py writing' not in root_prompt_text:
         issues.append('prompt.md 缺少写作落盘入口口径')
     if 'python scripts/workflow_state.py confirm' not in root_prompt_text:
         issues.append('prompt.md 缺少流程确认入口口径')
-    if 'R1/R2/R3/R-DNA' not in root_prompt_text:
-        issues.append('prompt.md 缺少完整版 humanizer 口径')
+    if 'main 分支' not in root_prompt_text:
+        issues.append('prompt.md 缺少 humanizer 对齐 main 口径')
 
-    if 'benchmark-lite 完成前，不得进入 worldbuilding / chapter-outline / writing' not in root_skill_text:
+    if 'benchmark-lite 完成前，不得进入 worldbuilding / characters / chapter-outline / writing' not in root_skill_text:
         issues.append('SKILL.md 缺少 benchmark 强制前置口径')
-    if '除 humanizer 外，所有模块都以 `.xushikj/` 为唯一运行时目录' not in root_skill_text:
-        issues.append('SKILL.md 缺少 humanizer 独立运行口径')
+    if 'characters 完成前，不得进入 chapter-outline / writing' not in root_skill_text:
+        issues.append('SKILL.md 缺少人物卡门禁口径')
     if '只校验 `reply_length` 对应的最小中文字符数' not in root_skill_text:
         issues.append('SKILL.md 缺少仅保留下限的字数规则')
-    if 'R1/R2/R3/R-DNA' not in root_skill_text:
-        issues.append('SKILL.md 缺少完整版 humanizer 口径')
+    if 'main` 分支后处理模块保持一致' not in root_skill_text:
+        issues.append('SKILL.md 缺少 humanizer 对齐 main 口径')
 
     readme_text = read_text_utf8(SKILL_ROOT / 'README.md', '')
-    if 'benchmark-lite' not in readme_text or 'worldbuilding' not in readme_text or 'chapter-outline' not in readme_text:
+    if 'benchmark-lite' not in readme_text or 'characters' not in readme_text or 'chapter-outline' not in readme_text:
         issues.append('README.md 缺少新 Lite 主流程命名')
-    if '不再有番茄等平台硬上限' not in readme_text:
-        issues.append('README.md 缺少移除上限说明')
+    if '完整的 style_notes 契约' not in readme_text:
+        issues.append('README.md 缺少 benchmark 完整契约说明')
 
     quickstart_text = read_text_utf8(SKILL_ROOT / 'QUICKSTART.md', '')
     if '--step worldbuilding' not in quickstart_text:
         issues.append('QUICKSTART.md 缺少 worldbuilding 组装示例')
+    if '--step characters' not in quickstart_text:
+        issues.append('QUICKSTART.md 缺少 characters 组装示例')
     if '--step chapter-outline --chapter 1' not in quickstart_text:
         issues.append('QUICKSTART.md 缺少 chapter-outline 组装示例')
     if '--step humanizer --chapter-file' not in quickstart_text:
         issues.append('QUICKSTART.md 缺少 humanizer 独立示例')
-    if 'python scripts/workflow_state.py confirm' not in quickstart_text:
-        issues.append('QUICKSTART.md 缺少流程确认示例')
-    if '## 豁免记录' not in quickstart_text or '## R-DNA校验' not in quickstart_text:
-        issues.append('QUICKSTART.md 缺少 humanizer 结构化输出口径')
+    if '修改清单' not in quickstart_text:
+        issues.append('QUICKSTART.md 缺少 humanizer 新输出契约口径')
 
     validate_state_text = read_text_utf8(scripts_root / 'validate_state.py', '')
-    if 'reply_length' not in validate_state_text or 'target_platform' in validate_state_text.split('STEP_DEPENDENCIES', 1)[-1]:
+    if 'characters' not in validate_state_text:
+        issues.append('validate_state.py 缺少人物卡依赖门禁')
+    if 'target_platform' in validate_state_text.split('STEP_DEPENDENCIES', 1)[-1]:
         issues.append('validate_state.py 门禁未切换到仅保留 reply_length')
 
     landing_text = read_text_utf8(scripts_root / 'landing.py', '')
@@ -176,20 +181,26 @@ def validate_all() -> bool:
         issues.append('landing.py 仍残留旧 KB 回写逻辑')
     if 'maximum=' in landing_text:
         issues.append('landing.py 仍残留字数上限校验')
-    if '豁免记录' not in landing_text or 'R-DNA校验' not in landing_text:
-        issues.append('landing.py 缺少完整版 humanizer 结构化落盘')
+    if '修改清单' not in landing_text:
+        issues.append('landing.py 未兼容 main 风格的 humanizer 输出')
 
     workflow_text = read_text_utf8(scripts_root / 'workflow_state.py', '')
-    if 'worldbuilding' not in workflow_text or 'chapter-outline' not in workflow_text:
-        issues.append('workflow_state.py 未切换到新步骤链路')
+    if 'characters' not in workflow_text or 'chapter-outline' not in workflow_text:
+        issues.append('workflow_state.py 未切换到含人物卡的新步骤链路')
+
+    benchmark_template_text = read_text_utf8(prompt_root / 'step_0_benchmark_lite.md', '')
+    if '多段原文采样' not in benchmark_template_text or '前段 / 中段 / 后段' not in benchmark_template_text:
+        issues.append('step_0_benchmark_lite.md 未声明多段采样规则')
 
     humanizer_template_text = read_text_utf8(prompt_root / 'step_humanizer.md', '')
-    if 'R1-EXEMPT' not in humanizer_template_text or '## R-DNA校验' not in humanizer_template_text:
-        issues.append('step_humanizer.md 尚未移植完整版去AI规则')
+    if '无用细节清除' not in humanizer_template_text or '修改清单' not in humanizer_template_text:
+        issues.append('step_humanizer.md 未对齐 main 后处理契约')
 
     metadata_sync_text = read_text_utf8(scripts_root / 'update_skill_metadata.py', '')
     if 'modules/planning' in metadata_sync_text or 'modules/scenes' in metadata_sync_text or 'modules/knowledge-base' in metadata_sync_text:
         issues.append('update_skill_metadata.py 仍残留旧模块命名')
+    if 'modules/characters' not in metadata_sync_text:
+        issues.append('update_skill_metadata.py 缺少 characters 模块')
 
     print('=' * 60)
     print('Lite references validation')

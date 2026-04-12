@@ -1,10 +1,11 @@
 # 叙事空间 Lite v11.0
 
-以 `benchmark-lite -> 世界观与力量体系讨论 -> 章纲讨论 -> 正文写作` 为主干的 Lite 创作系统。
+以 `benchmark-lite -> 世界观与力量体系讨论 -> 人物卡片设定 -> 章纲讨论 -> 正文写作` 为主干的 Lite 创作系统。
 
 ## 强制模块
 - benchmark-lite
 - worldbuilding
+- characters
 - chapter-outline
 - writing
 
@@ -21,15 +22,18 @@ python scripts/assemble_prompt.py --project-dir /your/project --step benchmark-l
 ## Lite 主流程
 1. `benchmark-lite`
 2. `worldbuilding`
-3. `chapter-outline`
-4. `10`（正文写作）
-5. `humanizer`（可选）
+3. `characters`
+4. `chapter-outline`
+5. `10`（正文写作）
+6. `humanizer`（可选）
 
 ## 关键变化
 - benchmark-lite 改为必选前置，不可跳过
+- benchmark 输出恢复更完整的 style_notes 契约，但不再要求场景切片 / 风格切片
+- 新增人物卡片设定步骤，写作阶段按需加载人物卡片
 - 写作主流程不再使用 `project_card / 卷纲 / 轻量 KB / 章节卡`
 - 写作只校验最小中文字符数，不再有番茄等平台硬上限
-- writing 以《文风特征指南》+ 世界观设定 + 当前章章纲为硬输入
+- humanizer 契约与 `main` 分支后处理模块对齐
 
 ## 写作落盘
 ```bash
@@ -44,10 +48,9 @@ python scripts/landing.py humanizer --project-dir /your/workdir --chapter-file /
 python scripts/validate_state.py --project-dir /your/workdir --for-step humanizer --chapter-file /your/workdir/chapter_1.md
 ```
 
-Humanizer 输出必须包含：
-- `## 修改说明`
-- `## 豁免记录`
-- `## R-DNA校验`
+Humanizer 当前落盘主契约：
+- 正文后追加 `## 修改清单`
+- 兼容旧版 `## 修改说明 / ## 豁免记录 / ## R-DNA校验`
 
 ## 验证命令
 ```bash

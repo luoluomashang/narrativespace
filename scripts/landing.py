@@ -16,7 +16,8 @@ from workflow_state import mark_step_complete, resolve_paths
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 WRITING_SECTION_ORDER = ['本章摘要', '状态变化', '新增设定', '未兑现钩子']
-HUMANIZER_SECTION = '修改说明'
+HUMANIZER_PRIMARY_SECTION = '修改清单'
+HUMANIZER_LEGACY_SECTION = '修改说明'
 HUMANIZER_OPTIONAL_SECTIONS = ['豁免记录', 'R-DNA校验']
 
 
@@ -92,13 +93,16 @@ def _parse_humanizer_output(raw_text: str) -> tuple[str, dict[str, str]]:
     section_map = {heading: content for heading, content in sections}
     if not body:
         raise ValueError('润色正文为空，拒绝落盘。')
-    if HUMANIZER_SECTION not in section_map:
-        raise ValueError('润色输出缺少 `## 修改说明` 区块。')
+    if HUMANIZER_PRIMARY_SECTION in section_map:
+        parsed = {HUMANIZER_PRIMARY_SECTION: section_map[HUMANIZER_PRIMARY_SECTION].strip() or '（暂无）'}
+        return body.strip(), parsed
+    if HUMANIZER_LEGACY_SECTION not in section_map:
+        raise ValueError('润色输出缺少 `## 修改清单` 或兼容旧版结构化区块。')
     missing = [heading for heading in HUMANIZER_OPTIONAL_SECTIONS if heading not in section_map]
     if missing:
         raise ValueError(f'润色输出缺少结构化区块：{", ".join(missing)}')
     parsed = {
-        HUMANIZER_SECTION: section_map[HUMANIZER_SECTION].strip() or '（暂无）',
+        HUMANIZER_LEGACY_SECTION: section_map[HUMANIZER_LEGACY_SECTION].strip() or '（暂无）',
         '豁免记录': section_map['豁免记录'].strip() or '- 无',
         'R-DNA校验': section_map['R-DNA校验'].strip() or '- 未启用 DNA 保护',
     }
@@ -161,7 +165,7 @@ def _update_memory(
         '下次续写前要记得',
         '\n'.join([
             f'- 下一章必须兑现：{hooks[0] if hooks else "（暂无）"}',
-            '- 下一章必须避免：脱离章纲和文风指南硬写',
+            '- 下一章必须避免：脱离章纲、人物卡和文风指南硬写',
             f'- 本轮新增设定或状态变化：{"; ".join(settings) if settings else _one_line(summary_text)}',
         ]),
     )
@@ -281,14 +285,19 @@ def land_humanizer(project_dir: Path, input_file: Path, chapter: int | None, cha
     output_path = humanized_dir / output_name
     notes_path = drafts_dir / f'{Path(output_name).stem}_humanizer_notes.md'
     write_text_utf8(output_path, body + '\n')
-    write_text_utf8(
-        notes_path,
-        '\n\n'.join([
-            f'## {HUMANIZER_SECTION}\n{sections[HUMANIZER_SECTION]}',
-            f"## 豁免记录\n{sections['豁免记录']}",
-            f"## R-DNA校验\n{sections['R-DNA校验']}",
-        ]) + '\n',
-    )
+    if HUMANIZER_PRIMARY_SECTION in sections:
+        write_text_utf8(notes_path, f'## {HUMANIZER_PRIMARY_SECTION}\n{sections[HUMANIZER_PRIMARY_SECTION]}\n')
+        notes_label = '修改清单'
+    else:
+        write_text_utf8(
+            notes_path,
+            '\n\n'.join([
+                f'## {HUMANIZER_LEGACY_SECTION}\n{sections[HUMANIZER_LEGACY_SECTION]}',
+                f"## 豁免记录\n{sections['豁免记录']}",
+                f"## R-DNA校验\n{sections['R-DNA校验']}",
+            ]) + '\n',
+        )
+        notes_label = '修改说明'
 
     state_path = xushikj_dir / 'state.json'
     if state_path.exists():
@@ -309,7 +318,7 @@ def land_humanizer(project_dir: Path, input_file: Path, chapter: int | None, cha
         )
 
     print(f'[landing] 已写入润色稿：{output_path}')
-    print(f'[landing] 已写入修改说明：{notes_path}')
+    print(f'[landing] 已写入{notes_label}：{notes_path}')
     return 0
 
 

@@ -1,6 +1,6 @@
 version: 11.0.0
 writing_rules:
-  - writing 必须同时读取《文风特征指南》、世界观设定、当前章章纲、summary_index.md、memory.md
+  - writing 必须同时读取《文风特征指南》、世界观设定、相关人物卡片、当前章章纲、summary_index.md、memory.md
   - 优先模仿原作者语感，杜绝“总而言之 / 不可否认 / 至关重要”等 AI 套话
   - 续写必须围绕当前章骨架推进，不偷跳后续剧情
   - 优先小步推进，保证局部语感稳定，再扩写到完整章节

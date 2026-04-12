@@ -27,6 +27,7 @@ RULE_FILES = {
     '0': ['meta_rules.yaml', 'benchmark_lite.yaml'],
     'benchmark-lite': ['meta_rules.yaml', 'benchmark_lite.yaml'],
     'worldbuilding': ['meta_rules.yaml', 'workflow.yaml'],
+    'characters': ['meta_rules.yaml', 'workflow.yaml'],
     'chapter-outline': ['meta_rules.yaml', 'workflow.yaml'],
     '10': ['meta_rules.yaml', 'writing_rules.yaml', 'style_rules.yaml'],
     'writing': ['meta_rules.yaml', 'writing_rules.yaml', 'style_rules.yaml'],
@@ -36,6 +37,7 @@ TEMPLATES = {
     '0': 'step_0_benchmark_lite.md',
     'benchmark-lite': 'step_0_benchmark_lite.md',
     'worldbuilding': 'step_worldbuilding.md',
+    'characters': 'step_characters.md',
     'chapter-outline': 'step_chapter_outline.md',
     '10': 'step_10_writing.md',
     'writing': 'step_10_writing.md',
@@ -138,8 +140,8 @@ def _humanizer_dna_constraints(xushikj_dir: Path) -> str:
 
     dna_path = dna_files[0]
     dna_payload = _load_yaml_or_json(dna_path, {})
-    do_items = _extract_constraint_lines(dna_payload, ['do', 'do_list', 'dos', 'preferred', 'guidelines'], 6)
-    dont_items = _extract_constraint_lines(dna_payload, ['dont', 'dont_list', 'donts', 'forbidden', 'avoid'], 6)
+    do_items = _extract_constraint_lines(dna_payload, ['do', 'do_list', 'dos', 'preferred', 'guidelines'], 8)
+    dont_items = _extract_constraint_lines(dna_payload, ['dont', 'dont_list', 'donts', 'forbidden', 'avoid'], 8)
     lines = [f'- source={source_label}:{dna_path.name}']
     lines.extend(f'- DO: {item}' for item in do_items)
     lines.extend(f"- DON'T: {item}" for item in dont_items)
@@ -162,8 +164,9 @@ def _project_context(state: dict[str, Any]) -> str:
         f"- 目标平台（可选）：{state.get('target_platform') or '（未设置）'}",
         f"- 当前写作模式：{state.get('writing_mode') or 'style-clone'}",
     ]
-    if state.get('active_style_profile'):
-        parts.append(f"- 当前风格标签：{state['active_style_profile']}")
+    benchmark_state = state.get('benchmark_state', {})
+    if isinstance(benchmark_state, dict) and benchmark_state.get('sample_scope'):
+        parts.append(f"- 对标采样策略：{benchmark_state.get('sample_scope')}")
     return '\n'.join(parts)
 
 
@@ -172,6 +175,16 @@ def _ready_text(path: Path) -> bool:
         return False
     text = path.read_text(encoding='utf-8-sig', errors='replace').strip()
     return bool(text) and PLACEHOLDER not in text
+
+
+def _ready_character_cards(path: Path) -> bool:
+    if not path.exists():
+        return False
+    for card_path in sorted(path.glob('*.md')):
+        text = card_path.read_text(encoding='utf-8-sig', errors='replace').strip()
+        if text and PLACEHOLDER not in text:
+            return True
+    return False
 
 
 def _memory_context(xushikj_dir: Path) -> str:
@@ -197,6 +210,105 @@ def _render(template: str, values: dict[str, str]) -> str:
     return rendered
 
 
+def _character_cards_dir(xushikj_dir: Path) -> Path:
+    return xushikj_dir / 'outline' / 'characters'
+
+
+def _card_name(card_path: Path, text: str) -> str:
+    first_line = text.splitlines()[0].strip() if text.splitlines() else ''
+    if first_line.startswith('#'):
+        return first_line.lstrip('#').strip()
+    return card_path.stem
+
+
+def _format_cards(card_paths: list[Path]) -> str:
+    if not card_paths:
+        return '（暂无人物卡）'
+    blocks: list[str] = []
+    for path in card_paths:
+        text = _read_text(path)
+        name = _card_name(path, text)
+        blocks.append(f'### {name}\n来源：{path.name}\n{text}')
+    return '\n\n'.join(blocks)
+
+
+def _existing_character_cards(xushikj_dir: Path) -> str:
+    cards_dir = _character_cards_dir(xushikj_dir)
+    return _format_cards(sorted(cards_dir.glob('*.md')))
+
+
+def _select_character_cards(xushikj_dir: Path, query_text: str, limit: int = 4) -> str:
+    cards_dir = _character_cards_dir(xushikj_dir)
+    card_paths = sorted(cards_dir.glob('*.md'))
+    if not card_paths:
+        return '（暂无人物卡）'
+    lowered = query_text.lower()
+    scored: list[tuple[int, Path]] = []
+    for path in card_paths:
+        text = _read_text(path)
+        name = _card_name(path, text)
+        score = 0
+        for token in {path.stem.lower(), name.lower()}:
+            if token and token in lowered:
+                score += 2
+        if text and any(line.strip() and line.strip() in query_text for line in text.splitlines()[:3]):
+            score += 1
+        scored.append((score, path))
+    scored.sort(key=lambda item: (-item[0], item[1].name))
+    selected = [path for _, path in scored[:limit] if _read_text(path) != EMPTY_PLACEHOLDER]
+    return _format_cards(selected)
+
+
+def _benchmark_source_samples(xushikj_dir: Path) -> str:
+    benchmark_dir = xushikj_dir / 'benchmark'
+    registry_path = benchmark_dir / 'source_registry.json'
+    source_path: Path | None = None
+    source_title = ''
+    if registry_path.exists():
+        payload = _load_yaml_or_json(registry_path, {})
+        candidate = payload.get('source_file')
+        if candidate:
+            source_path = Path(str(candidate))
+            source_title = str(payload.get('source_title', ''))
+    if source_path is None or not source_path.exists():
+        for candidate in sorted(benchmark_dir.glob('*')):
+            if candidate.name in {'style_notes.md', 'source_registry.json'} or candidate.is_dir():
+                continue
+            if candidate.suffix.lower() in {'.md', '.txt'}:
+                source_path = candidate
+                source_title = candidate.stem
+                break
+    if source_path is None or not source_path.exists():
+        return '（未登记对标原文；若用户提供原文文件，请先写入 `.xushikj/benchmark/source_registry.json` 或放入 benchmark 目录，再重新组装 Prompt）'
+
+    raw_text = source_path.read_text(encoding='utf-8-sig', errors='replace').replace('\r\n', '\n').strip()
+    if not raw_text:
+        return f'（已找到对标原文 {source_path.name}，但内容为空）'
+
+    def excerpt(ratio: float, width: int = 700) -> str:
+        if len(raw_text) <= width:
+            return raw_text
+        center = int(len(raw_text) * ratio)
+        start = max(0, center - width // 2)
+        end = min(len(raw_text), start + width)
+        start_break = raw_text.rfind('\n', 0, start)
+        end_break = raw_text.find('\n', end)
+        if start_break != -1:
+            start = start_break + 1
+        if end_break != -1:
+            end = end_break
+        snippet = raw_text[start:end].strip()
+        return snippet or raw_text[max(0, center - width // 2): min(len(raw_text), center + width // 2)].strip()
+
+    title = source_title or source_path.name
+    return '\n\n'.join([
+        f'来源：{title} / 文件：{source_path}',
+        '### 前段样本\n' + excerpt(0.15),
+        '### 中段样本\n' + excerpt(0.50),
+        '### 后段样本\n' + excerpt(0.85),
+    ])
+
+
 def _status(project_root: Path, xushikj_dir: Path) -> str:
     initialized = xushikj_dir.exists() and (xushikj_dir / 'state.json').exists()
     if not initialized:
@@ -217,6 +329,7 @@ def _status(project_root: Path, xushikj_dir: Path) -> str:
         f"next_step_suggestion={workflow.get('next_step_suggestion', '')}",
         f"benchmark_ready={_ready_text(xushikj_dir / 'benchmark' / 'style_notes.md')}",
         f"worldview_ready={_ready_text(xushikj_dir / 'worldbuilding' / 'worldview.md')}",
+        f"characters_ready={_ready_character_cards(_character_cards_dir(xushikj_dir))}",
         f"chapter_outline_ready={_ready_text(xushikj_dir / 'chapter_outlines' / f'chapter_{chapter_no}.md')}",
         f"chapter_exists={(xushikj_dir / 'chapters' / f'chapter_{chapter_no}.md').exists()}",
     ])
@@ -283,18 +396,23 @@ def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Pa
     chapter_no = chapter or int(state.get('current_chapter', 1))
     style_notes_path = xushikj_dir / 'benchmark' / 'style_notes.md'
     worldview_path = xushikj_dir / 'worldbuilding' / 'worldview.md'
+    characters_dir = _character_cards_dir(xushikj_dir)
     outline_path = xushikj_dir / 'chapter_outlines' / f'chapter_{chapter_no}.md'
     template = read_text_utf8(PROMPTS_DIR / TEMPLATES[step], '')
 
-    if step in {'worldbuilding', 'chapter-outline', '10', 'writing'} and not _ready_text(style_notes_path):
+    if step in {'worldbuilding', 'characters', 'chapter-outline', '10', 'writing'} and not _ready_text(style_notes_path):
         raise FileNotFoundError(f'benchmark-lite 尚未完成，请先产出可用的文风特征指南：{style_notes_path}')
-    if step in {'chapter-outline', '10', 'writing'} and not _ready_text(worldview_path):
+    if step in {'characters', 'chapter-outline', '10', 'writing'} and not _ready_text(worldview_path):
         raise FileNotFoundError(f'世界观设定尚未完成，请先补齐：{worldview_path}')
+    if step in {'chapter-outline', '10', 'writing'} and not _ready_character_cards(characters_dir):
+        raise FileNotFoundError(f'人物卡片设定尚未完成，请先补齐：{characters_dir}')
     if step in {'10', 'writing'} and not _ready_text(outline_path):
         raise FileNotFoundError(f'章纲讨论尚未完成，请先补齐：{outline_path}')
     if step in {'10', 'writing'} and not (isinstance(state.get('reply_length'), int) and int(state.get('reply_length')) > 0):
         raise ValueError('进入 writing 前必须先确认 reply_length')
 
+    previous_excerpt = _previous_excerpt(xushikj_dir, chapter_no)
+    selection_query = '\n'.join([_read_text(outline_path, ''), previous_excerpt])
     values = {
         'project_name': project_name,
         'project_context': _project_context(state),
@@ -302,12 +420,16 @@ def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Pa
         'rules': _load_rules(step),
         'style_guide': _read_text(style_notes_path),
         'worldview_text': _read_text(worldview_path),
+        'existing_character_cards': _existing_character_cards(xushikj_dir),
+        'character_cards': _select_character_cards(xushikj_dir, selection_query),
         'chapter_outline': _read_text(outline_path),
         'chapter_label': f'第 {chapter_no} 章',
         'reply_length': str(state.get('reply_length') or '（待确认）'),
         'target_platform': str(state.get('target_platform') or '（未设置）'),
         'memory_context': _memory_context(xushikj_dir),
-        'previous_excerpt': _previous_excerpt(xushikj_dir, chapter_no),
+        'previous_excerpt': previous_excerpt,
+        'benchmark_source_samples': _benchmark_source_samples(xushikj_dir),
+        'existing_style_notes': _read_text(style_notes_path),
     }
     return _render(template, values)
 
@@ -315,7 +437,7 @@ def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Pa
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Assemble narrativespace Lite prompt')
     parser.add_argument('--project-dir', required=True, type=Path, help='Project root or .xushikj path')
-    parser.add_argument('--step', help='0 / benchmark-lite / worldbuilding / chapter-outline / 10 / writing / humanizer')
+    parser.add_argument('--step', help='0 / benchmark-lite / worldbuilding / characters / chapter-outline / 10 / writing / humanizer')
     parser.add_argument('--chapter', type=int, help='Optional chapter number for step chapter-outline/10/humanizer')
     parser.add_argument('--chapter-file', type=Path, help='Optional standalone chapter file for humanizer')
     parser.add_argument('--output', choices=['stdout', 'file'], default='stdout')

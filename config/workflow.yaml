@@ -1,8 +1,10 @@
 version: 11.0.0
 system: narrativespace-lite
-architecture: 4+1
+architecture: 5+1
 principles:
-  - benchmark-lite 是强制前置，后续步骤必须读取文风指纹结果
+  - benchmark-lite 是强制前置，后续步骤必须读取 style_notes 结果
+  - benchmark-lite 尽量保持原版完整 style_notes 契约，只移除场景切片与风格切片落盘要求
+  - 对标采样必须覆盖前段 / 中段 / 后段多个区域，避免只读开头
   - 每次只执行一个步骤，并等待用户确认
   - 运行时只读取 `.xushikj/` 下的项目文件
   - 进入下一步骤前，必须先清除 workflow.pending_user_confirmation 门禁
@@ -12,10 +14,15 @@ steps:
     optional: false
     outputs:
       - benchmark/style_notes.md
+      - benchmark/source_registry.json
   - id: worldbuilding
     name: 世界观与力量体系讨论
     outputs:
       - worldbuilding/worldview.md
+  - id: characters
+    name: 人物卡片设定
+    outputs:
+      - outline/characters/{char_id}.md
   - id: chapter-outline
     name: 章纲讨论
     outputs:

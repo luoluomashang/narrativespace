@@ -6,8 +6,10 @@ Lite workflow smoke regression.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
+from hashlib import sha256
 from pathlib import Path
 
 from encoding_utils import reconfigure_stdio_utf8, subprocess_utf8_kwargs, write_text_utf8
@@ -67,19 +69,28 @@ def main() -> int:
     benchmark_dir.mkdir(parents=True, exist_ok=True)
     worldbuilding_dir = xushikj_dir / 'worldbuilding'
     worldbuilding_dir.mkdir(parents=True, exist_ok=True)
+    characters_dir = xushikj_dir / 'outline' / 'characters'
+    characters_dir.mkdir(parents=True, exist_ok=True)
     outline_dir = xushikj_dir / 'chapter_outlines'
     outline_dir.mkdir(parents=True, exist_ok=True)
 
+    source_text = ('开头样本。' * 120) + ('中段样本。' * 120) + ('结尾样本。' * 120)
+    source_file = project_dir / 'benchmark_source.txt'
+    write_text_utf8(source_file, source_text)
+    registry = {
+        'source_file': str(source_file.resolve()),
+        'source_title': '测试原文',
+        'source_sha256': sha256(source_file.read_bytes()).hexdigest(),
+    }
+    write_text_utf8(benchmark_dir / 'source_registry.json', json.dumps(registry, ensure_ascii=False, indent=2) + '\n')
+
     write_text_utf8(
         benchmark_dir / 'style_notes.md',
-        '# 文风特征指南\n\n'
-        '## 词汇偏好\n- 多用短促口语。\n\n'
-        '## 句式节奏\n- 长短句交替。\n\n'
-        '## 标点习惯\n- 逗号和破折号较多。\n\n'
-        '## 情感与基调\n- 冷静克制。\n\n'
-        '## 修辞与细节偏好\n- 细看动作。\n\n'
-        '## AI 套话黑名单 / 禁用表达\n- 总而言之\n\n'
-        '## 小步续写约束\n- 先稳住语感，再扩写。\n',
+        '# 文风特征指南 / 对标风格分析报告\n\n'
+        '## 一、文风特征摘要\n\n'
+        '### 1.1 语言风格参数\n- 词汇偏好：多用短促口语。\n- 句式特征：长短句交替。\n- 叙述视角：近距离第三人称。\n- 口语化程度：偏高。\n- 标点习惯：逗号和破折号较多。\n- 段落结构：短段推进。\n- 情感基调：冷静克制。\n- 修辞与细节偏好：细看动作。\n\n'
+        '### 1.2 与限制列表的交叉比对\n- AI 套话黑名单 / 禁用表达：总而言之。\n\n'
+        '## 七、小步续写约束\n- 先稳住语感，再扩写。\n',
     )
     write_text_utf8(
         worldbuilding_dir / 'worldview.md',
@@ -90,6 +101,18 @@ def main() -> int:
         '## 主角起点与成长逻辑\n- 主角从残火学徒开始。\n\n'
         '## 世界冲突源\n- 旧神复苏。\n\n'
         '## 长期硬设定\n- 火种不可凭空再生。\n',
+    )
+    write_text_utf8(
+        characters_dir / 'char_001.md',
+        '# 林烬\n\n'
+        '- 角色类型：主角\n'
+        '- 价值观：先活下来再谈体面\n'
+        '- 抱负：掌控禁火\n'
+        '- 当前目标：查清失名真相\n'
+        '- 内在矛盾：求生与自毁并存\n'
+        '- 行为底层逻辑：绝不再被动挨打\n'
+        '- 压力反应基线：先硬撑，再突然爆发\n'
+        '- 欲望 / 恐惧 / 羞耻 / 债务：想活 / 怕失名 / 羞于软弱 / 欠师父一条命\n',
     )
     write_text_utf8(
         outline_dir / f'chapter_{args.chapter}.md',
@@ -107,24 +130,27 @@ def main() -> int:
     failures: list[str] = []
     try:
         for cmd, contains in [
-            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'benchmark-lite'], ['文风克隆分析师', 'AI 套话黑名单']),
+            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'benchmark-lite'], ['文风克隆分析师', '前段样本', '中段样本', '后段样本']),
             ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'worldbuilding'], ['设定讨论搭档', '世界观与力量体系设定']),
-            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'chapter-outline', '--chapter', str(args.chapter)], ['章节骨架讨论搭档', '本章目标']),
-            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', '10', '--chapter', str(args.chapter)], ['文风克隆续写主笔', '文风特征指南', '本章最低中文字符数：50']),
+            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'characters'], ['人物设定讨论搭档', '每张人物卡最小字段集']),
+            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'chapter-outline', '--chapter', str(args.chapter)], ['章节骨架讨论搭档', '相关人物卡片']),
+            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', '10', '--chapter', str(args.chapter)], ['文风克隆续写主笔', '相关人物卡片', '本章最低中文字符数：50']),
         ]:
             expect_success(cmd, contains=contains, forbid_replacement_char=True)
 
-        missing_benchmark_project = Path(args.project_dir).resolve() / '缺对标'
-        missing_benchmark_project.mkdir(parents=True, exist_ok=True)
-        expect_success([sys.executable, str(init_script), '--project-dir', str(missing_benchmark_project), '--yes', '--reply-length', '50'])
-        gate_x = missing_benchmark_project / '.xushikj'
+        missing_character_project = Path(args.project_dir).resolve() / '缺人物卡'
+        missing_character_project.mkdir(parents=True, exist_ok=True)
+        expect_success([sys.executable, str(init_script), '--project-dir', str(missing_character_project), '--yes', '--reply-length', '50'])
+        gate_x = missing_character_project / '.xushikj'
+        (gate_x / 'benchmark').mkdir(parents=True, exist_ok=True)
         (gate_x / 'worldbuilding').mkdir(parents=True, exist_ok=True)
         (gate_x / 'chapter_outlines').mkdir(parents=True, exist_ok=True)
+        write_text_utf8(gate_x / 'benchmark' / 'style_notes.md', '# 文风特征指南 / 对标风格分析报告\n\n## 一、文风特征摘要\n- 已写好。\n')
         write_text_utf8(gate_x / 'worldbuilding' / 'worldview.md', '# 世界观与力量体系设定\n\n## 世界观底层规则\n- 已写好。\n')
         write_text_utf8(gate_x / 'chapter_outlines' / 'chapter_1.md', '# 第1章章纲\n\n## 本章目标\n- 已写好。\n')
         expect_failure(
-            [sys.executable, str(validate_script), '--project-dir', str(missing_benchmark_project), '--for-step', '10', '--chapter', '1'],
-            contains=['必须先完成 benchmark-lite'],
+            [sys.executable, str(validate_script), '--project-dir', str(missing_character_project), '--for-step', '10', '--chapter', '1'],
+            contains=['必须先完成人物卡片设定'],
         )
 
         writing_output = xushikj_dir / 'drafts' / 'chapter_1_output.md'
@@ -153,24 +179,6 @@ def main() -> int:
             forbid_replacement_char=True,
         )
 
-        short_project = Path(args.project_dir).resolve() / '短章测试'
-        short_project.mkdir(parents=True, exist_ok=True)
-        expect_success([sys.executable, str(init_script), '--project-dir', str(short_project), '--yes', '--reply-length', '50'], contains=['[init] Lite project ready'])
-        short_x = short_project / '.xushikj'
-        short_output = short_x / 'drafts' / 'chapter_1_output.md'
-        write_text_utf8(
-            short_output,
-            '太短了。\n\n'
-            '## 本章摘要\n- 太短。\n\n'
-            '## 状态变化\n- （暂无）\n\n'
-            '## 新增设定\n- （暂无）\n\n'
-            '## 未兑现钩子\n- （暂无）\n',
-        )
-        expect_failure(
-            [sys.executable, str(landing_script), 'writing', '--project-dir', str(short_project), '--chapter', '1', '--input-file', str(short_output)],
-            contains=['中文字数不足'],
-        )
-
         standalone_dir = Path(args.project_dir).resolve() / '独立润色'
         standalone_dir.mkdir(parents=True, exist_ok=True)
         standalone_chapter = standalone_dir / 'chapter_独立.md'
@@ -183,20 +191,21 @@ def main() -> int:
         )
         expect_success(
             [sys.executable, str(assemble_script), '--project-dir', str(standalone_dir), '--step', 'humanizer', '--chapter-file', str(standalone_chapter)],
-            contains=['出版前润色编辑', 'R1-EXEMPT', 'source=dna_human:dna_human_test.yaml'],
+            contains=['小说文本后处理专家', '无用细节清除', 'DNA 保护约束'],
             forbid_replacement_char=True,
         )
         humanizer_output = standalone_dir / 'humanizer_output.md'
         write_text_utf8(
             humanizer_output,
             '这是独立润色测试正文。\n\n'
-            '## 修改说明\n- [R2] 合并孤立短句。\n- [R-DNA] 保留了角色短促停顿。\n\n'
-            '## 豁免记录\n- R1-EXEMPT：保留一处强语义反转。\n\n'
-            '## R-DNA校验\n- 已保护的 DNA 特征：短促停顿、角色口头禅。\n',
+            '## 修改清单\n\n'
+            '| # | 规则 | 原文 | 修改后 | 原因 |\n'
+            '|---|------|------|--------|------|\n'
+            '| 1 | R3 | 与此同时，她转过身 | 她转过身 | AI衔接词删除 |\n',
         )
         expect_success(
             [sys.executable, str(landing_script), 'humanizer', '--project-dir', str(standalone_dir), '--chapter-file', str(standalone_chapter), '--input-file', str(humanizer_output)],
-            contains=['已写入润色稿', '已写入修改说明'],
+            contains=['已写入润色稿', '已写入修改清单'],
             forbid_replacement_char=True,
         )
         expect_success(

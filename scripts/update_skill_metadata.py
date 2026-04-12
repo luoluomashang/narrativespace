@@ -17,6 +17,7 @@ SKILL_ROOT = Path(__file__).resolve().parent.parent
 modules = {
     'modules/benchmark-lite': 'narrativespace-lite',
     'modules/worldbuilding': 'narrativespace-lite',
+    'modules/characters': 'narrativespace-lite',
     'modules/chapter-outline': 'narrativespace-lite',
     'modules/writing': 'narrativespace-lite',
     'modules/humanizer': 'narrativespace-lite',
