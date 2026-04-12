@@ -30,6 +30,7 @@ EMPTY_PLACEHOLDER = '（暂无）'
 
 RULE_FILES = {
     '0': ['meta_rules.yaml', 'benchmark_lite.yaml'],
+    'benchmark-lite': ['meta_rules.yaml', 'benchmark_lite.yaml'],
     'project_card': ['meta_rules.yaml', 'workflow.yaml'],
     '4': ['meta_rules.yaml', 'workflow.yaml'],
     '7': ['meta_rules.yaml', 'workflow.yaml'],
@@ -39,6 +40,7 @@ RULE_FILES = {
 }
 TEMPLATES = {
     '0': 'step_0_benchmark_lite.md',
+    'benchmark-lite': 'step_0_benchmark_lite.md',
     'project_card': 'step_project_card.md',
     '4': 'step_4_one_page.md',
     '7': 'step_7_kb.md',
@@ -159,6 +161,34 @@ def _project_name(state: dict[str, Any], project_root: Path) -> str:
     return name or project_root.name
 
 
+def _scene_type_coverage_summary(xushikj_dir: Path) -> str:
+    coverage_path = xushikj_dir / 'benchmark' / 'scene_type_coverage.json'
+    payload = _load_yaml_or_json(coverage_path, {})
+    coverage = payload.get('scene_types', payload) if isinstance(payload, dict) else {}
+    if not isinstance(coverage, dict) or not coverage:
+        return ''
+
+    active_lines: list[str] = []
+    missing_lines: list[str] = []
+    for scene_type, raw_meta in coverage.items():
+        meta = raw_meta if isinstance(raw_meta, dict) else {}
+        if bool(meta.get('source_available')):
+            chapter_hits = int(meta.get('chapter_hits', 0) or 0)
+            max_score = float(meta.get('max_score', 0) or 0)
+            active_lines.append(f'- {scene_type}: source_available=true, chapter_hits={chapter_hits}, max_score={max_score:.3f}')
+        else:
+            missing_lines.append(f'- {scene_type}: source_available=false')
+
+    sections: list[str] = ['## 场景覆盖基线']
+    if active_lines:
+        sections.append('### source_available=true')
+        sections.extend(active_lines)
+    if missing_lines:
+        sections.append('### source_missing')
+        sections.extend(missing_lines)
+    return '\n'.join(sections)
+
+
 def _project_context(xushikj_dir: Path, state: dict[str, Any]) -> str:
     parts: list[str] = []
     project_card = xushikj_dir / 'outline' / 'project_card.md'
@@ -173,6 +203,9 @@ def _project_context(xushikj_dir: Path, state: dict[str, Any]) -> str:
         f"- 每章最小中文字符数：{reply_length if reply_length else '（待确认）'}\n"
         f"- 目标平台：{target_platform if target_platform else '（待确认）'}"
     )
+    coverage_summary = _scene_type_coverage_summary(xushikj_dir)
+    if coverage_summary:
+        parts.append(coverage_summary)
     style_notes = xushikj_dir / 'benchmark' / 'style_notes.md'
     if style_notes.exists():
         parts.append('## 对标风格备忘\n' + _read_text(style_notes))
@@ -459,7 +492,7 @@ def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Pa
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Assemble narrativespace Lite prompt')
     parser.add_argument('--project-dir', required=True, type=Path, help='Project root or .xushikj path')
-    parser.add_argument('--step', help='0 / project_card / 4 / 7 / 8 / 10 / humanizer')
+    parser.add_argument('--step', help='0 / benchmark-lite / project_card / 4 / 7 / 8 / 10 / humanizer')
     parser.add_argument('--chapter', type=int, help='Optional chapter number for step 8/10/humanizer')
     parser.add_argument('--chapter-file', type=Path, help='Optional standalone chapter file for humanizer')
     parser.add_argument('--output', choices=['stdout', 'file'], default='stdout')
