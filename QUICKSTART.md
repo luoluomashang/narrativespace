@@ -52,6 +52,8 @@ python scripts/landing.py humanizer --project-dir /your/workdir --chapter-file /
 python scripts/validate_state.py --project-dir /your/workdir --for-step humanizer --chapter-file /your/workdir/chapter_1.md
 ```
 
+Humanizer 输出需包含 `## 修改说明` / `## 豁免记录` / `## R-DNA校验` 三个区块。
+
 ## 10. 校验写作前置 / 写后验收
 ```bash
 python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1

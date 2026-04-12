@@ -27,7 +27,7 @@
 - knowledge-base：step 7
 - scenes：step 8
 - writing：step 10
-- humanizer：章节定稿前润色
+- humanizer：章节定稿前润色 / 去 AI 痕迹（R1/R2/R3/R-DNA/豁免预算）
 
 ## 写后验收
 - Step 10 模型输出必须先通过 `python scripts/landing.py writing --project-dir <项目根目录> --chapter <N> --input-file <模型输出文件>` 落盘

@@ -18,6 +18,7 @@ from workflow_state import mark_step_complete, resolve_paths
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 WRITING_SECTION_ORDER = ["本章摘要", "状态变化", "新增设定", "未兑现钩子"]
 HUMANIZER_SECTION = "修改说明"
+HUMANIZER_OPTIONAL_SECTIONS = ["豁免记录", "R-DNA校验"]
 
 
 def _split_markdown_sections(text: str) -> tuple[str, list[tuple[str, str]]]:
@@ -94,14 +95,22 @@ def _parse_writing_output(raw_text: str) -> tuple[str, dict[str, str]]:
     return body.strip(), ordered
 
 
-def _parse_humanizer_output(raw_text: str) -> tuple[str, str]:
+def _parse_humanizer_output(raw_text: str) -> tuple[str, dict[str, str]]:
     body, sections = _split_markdown_sections(raw_text)
     section_map = {heading: content for heading, content in sections}
     if not body:
         raise ValueError("润色正文为空，拒绝落盘。")
     if HUMANIZER_SECTION not in section_map:
         raise ValueError("润色输出缺少 `## 修改说明` 区块。")
-    return body.strip(), section_map[HUMANIZER_SECTION].strip() or "（暂无）"
+    missing = [heading for heading in HUMANIZER_OPTIONAL_SECTIONS if heading not in section_map]
+    if missing:
+        raise ValueError(f"润色输出缺少结构化区块：{', '.join(missing)}")
+    parsed = {
+        HUMANIZER_SECTION: section_map[HUMANIZER_SECTION].strip() or "（暂无）",
+        "豁免记录": section_map["豁免记录"].strip() or "- 无",
+        "R-DNA校验": section_map["R-DNA校验"].strip() or "- 未启用 DNA 保护",
+    }
+    return body.strip(), parsed
 
 
 def _load_summary_template() -> str:
@@ -325,7 +334,7 @@ def land_writing(project_dir: Path, input_file: Path, chapter: int | None) -> in
 def land_humanizer(project_dir: Path, input_file: Path, chapter: int | None, chapter_file: Path | None) -> int:
     project_root, xushikj_dir = resolve_paths(project_dir)
     raw_text = read_text_utf8(input_file.resolve(), "")
-    body, notes = _parse_humanizer_output(raw_text)
+    body, sections = _parse_humanizer_output(raw_text)
     humanized_dir = xushikj_dir / "humanized"
     drafts_dir = xushikj_dir / "drafts"
     humanized_dir.mkdir(parents=True, exist_ok=True)
@@ -346,7 +355,17 @@ def land_humanizer(project_dir: Path, input_file: Path, chapter: int | None, cha
     output_path = humanized_dir / output_name
     notes_path = drafts_dir / f"{Path(output_name).stem}_humanizer_notes.md"
     write_text_utf8(output_path, body + "\n")
-    write_text_utf8(notes_path, f"## {HUMANIZER_SECTION}\n{notes}\n")
+    write_text_utf8(
+        notes_path,
+        "\n\n".join(
+            [
+                f"## {HUMANIZER_SECTION}\n{sections[HUMANIZER_SECTION]}",
+                f"## 豁免记录\n{sections['豁免记录']}",
+                f"## R-DNA校验\n{sections['R-DNA校验']}",
+            ]
+        )
+        + "\n",
+    )
 
     state_path = xushikj_dir / "state.json"
     if state_path.exists():

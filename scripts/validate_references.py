@@ -32,6 +32,7 @@ EXPECTED_PROMPT_TEMPLATES = {
 EXPECTED_CONFIGS = {
     "benchmark_lite.yaml",
     "human_touch_rules.yaml",
+    "humanizer_rules.yaml",
     "meta_rules.yaml",
     "style_rules.yaml",
     "workflow.yaml",
@@ -140,6 +141,8 @@ def validate_all() -> bool:
         issues.append("prompt.md 缺少写作落盘入口口径")
     if "python scripts/workflow_state.py confirm" not in root_prompt_text:
         issues.append("prompt.md 缺少流程确认入口口径")
+    if "R1/R2/R3/R-DNA" not in root_prompt_text:
+        issues.append("prompt.md 缺少完整版 humanizer 口径")
 
     if "在进入 planning / scenes / writing 前" not in root_skill_text:
         issues.append("SKILL.md 缺少 scenes 前置门禁口径")
@@ -147,6 +150,8 @@ def validate_all() -> bool:
         issues.append("SKILL.md 缺少 humanizer 独立运行口径")
     if "python scripts/landing.py writing" not in root_skill_text:
         issues.append("SKILL.md 缺少写作落盘入口口径")
+    if "R1/R2/R3/R-DNA" not in root_skill_text:
+        issues.append("SKILL.md 缺少完整版 humanizer 口径")
 
     readme_text = read_text_utf8(SKILL_ROOT / "README.md", "")
     if "benchmark-lite" not in readme_text:
@@ -161,6 +166,8 @@ def validate_all() -> bool:
         issues.append("QUICKSTART.md 缺少 humanizer 独立示例")
     if "python scripts/workflow_state.py confirm" not in quickstart_text:
         issues.append("QUICKSTART.md 缺少流程确认示例")
+    if "## 豁免记录" not in quickstart_text or "## R-DNA校验" not in quickstart_text:
+        issues.append("QUICKSTART.md 缺少 humanizer 结构化输出口径")
 
     validate_state_text = read_text_utf8(scripts_root / "validate_state.py", "")
     if '"humanizer": ["chapter_file"]' not in validate_state_text:
@@ -169,10 +176,16 @@ def validate_all() -> bool:
     landing_text = read_text_utf8(scripts_root / "landing.py", "")
     if "chapter_notes" not in landing_text or "mark_step_complete" not in landing_text:
         issues.append("landing.py 缺少回写知识库或流程门禁收口")
+    if "豁免记录" not in landing_text or "R-DNA校验" not in landing_text:
+        issues.append("landing.py 缺少完整版 humanizer 结构化落盘")
 
     workflow_text = read_text_utf8(scripts_root / "workflow_state.py", "")
     if "pending_user_confirmation" not in workflow_text or "confirm" not in workflow_text:
         issues.append("workflow_state.py 缺少确认门禁逻辑")
+
+    humanizer_template_text = read_text_utf8(prompt_root / "step_humanizer.md", "")
+    if "R1-EXEMPT" not in humanizer_template_text or "## R-DNA校验" not in humanizer_template_text:
+        issues.append("step_humanizer.md 尚未移植完整版去AI规则")
 
     metadata_sync_text = read_text_utf8(scripts_root / "update_skill_metadata.py", "")
     if any(pattern in metadata_sync_text for pattern in LEGACY_MODULE_PATTERNS):

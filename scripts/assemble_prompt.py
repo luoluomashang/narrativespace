@@ -35,7 +35,7 @@ RULE_FILES = {
     '7': ['meta_rules.yaml', 'workflow.yaml'],
     '8': ['meta_rules.yaml', 'workflow.yaml'],
     '10': ['meta_rules.yaml', 'writing_rules.yaml', 'style_rules.yaml'],
-    'humanizer': ['meta_rules.yaml', 'style_rules.yaml'],
+    'humanizer': ['meta_rules.yaml', 'style_rules.yaml', 'humanizer_rules.yaml'],
 }
 TEMPLATES = {
     '0': 'step_0_benchmark_lite.md',
@@ -93,6 +93,60 @@ def _load_rules(step: str) -> str:
             body = read_text_utf8(path, '', strip=True)
             sections.append(f'## {filename}\n{body}')
     return '\n\n'.join(sections) if sections else '（无额外规则）'
+
+
+def _flatten_nodes(node: Any, out: list[dict[str, Any]]) -> None:
+    if isinstance(node, dict):
+        out.append(node)
+        for value in node.values():
+            _flatten_nodes(value, out)
+    elif isinstance(node, list):
+        for item in node:
+            _flatten_nodes(item, out)
+
+
+def _extract_constraint_lines(data: Any, keys: list[str], limit: int) -> list[str]:
+    pool: list[dict[str, Any]] = []
+    _flatten_nodes(data, pool)
+    lines: list[str] = []
+    for item in pool:
+        for key in keys:
+            value = item.get(key)
+            if isinstance(value, list):
+                for raw in value:
+                    text = str(raw).strip()
+                    if text and text not in lines:
+                        lines.append(text)
+            elif isinstance(value, str):
+                text = value.strip()
+                if text and text not in lines:
+                    lines.append(text)
+            if len(lines) >= limit:
+                return lines[:limit]
+    return lines[:limit]
+
+
+def _humanizer_dna_constraints(xushikj_dir: Path) -> str:
+    style_modules_dir = xushikj_dir / 'config' / 'style_modules'
+    if not style_modules_dir.exists():
+        return '（当前项目未提供 dna_human_*.yaml / clone_*.yaml，可跳过 R-DNA 保护）'
+
+    dna_files = sorted(style_modules_dir.glob('dna_human_*.yaml'))
+    source_label = 'dna_human'
+    if not dna_files:
+        dna_files = sorted(style_modules_dir.glob('clone_*.yaml'))
+        source_label = 'clone'
+    if not dna_files:
+        return '（当前项目未提供 dna_human_*.yaml / clone_*.yaml，可跳过 R-DNA 保护）'
+
+    dna_path = dna_files[0]
+    dna_payload = _load_yaml_or_json(dna_path, {})
+    do_items = _extract_constraint_lines(dna_payload, ['do', 'do_list', 'dos', 'preferred', 'guidelines'], 6)
+    dont_items = _extract_constraint_lines(dna_payload, ['dont', 'dont_list', 'donts', 'forbidden', 'avoid'], 6)
+    lines = [f'- source={source_label}:{dna_path.name}']
+    lines.extend(f'- DO: {item}' for item in do_items)
+    lines.extend(f'- DON\'T: {item}' for item in dont_items)
+    return '\n'.join(lines) if len(lines) > 1 else f'- source={source_label}:{dna_path.name}'
 
 
 def _recent_summaries(xushikj_dir: Path) -> str:
@@ -350,6 +404,7 @@ def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Pa
             'chapter_label': chapter_label,
             'chapter_text': _read_text(humanizer_chapter_path),
             'rules': _load_rules(step),
+            'dna_constraints': _humanizer_dna_constraints(xushikj_dir),
         }
         return _render(template, values)
 

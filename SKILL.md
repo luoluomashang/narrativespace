@@ -34,7 +34,7 @@ metadata:
 4. Step 7 轻量知识库初始化/更新
 5. Step 8 当前章或未来 1~3 章章节卡
 6. Step 10 正文写作
-7. humanizer（可选）发布前润色
+7. humanizer（可选）发布前润色 / 去 AI 痕迹，完整保留 R1/R2/R3/R-DNA/豁免预算规则
 
 ## 边界
 - 不包含 interactive/TRPG 主流程

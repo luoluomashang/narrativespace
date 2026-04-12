@@ -1,0 +1,70 @@
+version: 11.0.0
+humanizer_rules:
+  core_principles:
+    - 只做减法和替换，不加新剧情、不补新设定
+    - 宁可漏改，不可误伤；保留合法文学手段与角色声音
+    - humanizer 目标是清除 AI 通病，不是把文本洗成统一口吻
+  rewrite_rules:
+    contrast_cleanup:
+      id: R1
+      patterns:
+        - 不是A，而是B
+        - 不是A，是B
+        - 不仅是A，更是B
+        - 与其说是A，不如说是B
+      rewrite_priority:
+        - 转为单肯定
+        - 转为双肯定
+        - 转为具体描写
+        - 直接保留B
+      keep_only_when:
+        - 删除会导致剧情信息缺失
+        - A/B 对比包含读者无法自行推导的信息差
+    sparse_layout_cleanup:
+      id: R2
+      targets:
+        - 独占一行且 <=15 字的非对话句
+        - 连续 2 个以上短句各占一行
+        - 非场景转换场合的 1-2 句孤段
+      exceptions:
+        - 对话中的自然停顿
+        - 极快打斗动作
+        - 场景切换标记
+    ai_phrase_cleanup:
+      id: R3
+      replace_map:
+        此刻: "这一刻 / 现在 / 当下"
+        然而: "但 / 只是 / 偏偏"
+        同时: "顺带 / 顺手 / 一边……一边……"
+        不仅如此: "删除，直接进入后半句"
+        令人窒息: "改成具体身体反应"
+        从而: "直接写结果"
+        其实: "尽量删除或改成具体化陈述"
+  narrator_voice_protection:
+    id: ht_07
+    allow:
+      - 简短叙述者介入
+      - 情绪高压时的不完整句
+      - 角色口语化、嘴碎感、短促停顿
+    constraints:
+      - 不得改坏 POV 锁定
+      - 不得把合法口吻误杀成统一播音腔
+      - 叙述者介入必须简短，不解释剧情
+  dna_regression_check:
+    id: R-DNA
+    rule:
+      - 若存在 dna_human_*.yaml 或 clone_*.yaml，先保护 DO 特征，再清理 AI 痕迹
+      - 当改动会伤到 DNA 特征时，以 DNA 保护优先
+      - 最终必须给出 DO 保留情况或明确写“未启用 DNA 保护”
+  exemption_budget:
+    rule:
+      - R1 豁免：强语义反转且无法简化时，每 1000 字最多 1 次
+      - R3 豁免：角色口头禅 / 人物标签词时，每 2000 字最多 1 次
+      - 全局预算：R1 + R3 合计每章 <= 3 次
+      - 豁免项需写入 `## 豁免记录`，标记为 `R1-EXEMPT` / `R3-EXEMPT`
+  output_contract:
+    sections:
+      - 修改后的正文
+      - "## 修改说明"
+      - "## 豁免记录"
+      - "## R-DNA校验"

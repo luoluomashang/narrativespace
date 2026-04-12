@@ -215,6 +215,12 @@ def main() -> int:
         standalone_dir.mkdir(parents=True, exist_ok=True)
         standalone_chapter = standalone_dir / 'chapter_独立.md'
         write_text_utf8(standalone_chapter, '这是独立润色测试正文。\n')
+        standalone_style_dir = standalone_dir / '.xushikj' / 'config' / 'style_modules'
+        standalone_style_dir.mkdir(parents=True, exist_ok=True)
+        write_text_utf8(
+            standalone_style_dir / 'dna_human_test.yaml',
+            'do:\n  - 保留短促停顿\n  - 保留角色口头禅\navoid:\n  - 把文本洗成统一播音腔\n',
+        )
         expect_success(
             [
                 sys.executable,
@@ -226,13 +232,20 @@ def main() -> int:
                 '--chapter-file',
                 str(standalone_chapter),
             ],
-            contains=['出版前润色编辑', '这是独立润色测试正文。'],
+            contains=['出版前润色编辑', '这是独立润色测试正文。', 'R1-EXEMPT', 'source=dna_human:dna_human_test.yaml'],
             forbid_replacement_char=True,
         )
         humanizer_output = standalone_dir / 'humanizer_output.md'
         write_text_utf8(
             humanizer_output,
-            '这是独立润色测试正文。\n\n## 修改说明\n- 调整句式节奏。\n',
+            '这是独立润色测试正文。\n\n'
+            '## 修改说明\n'
+            '- [R2] 合并孤立短句。\n'
+            '- [R-DNA] 保留了角色短促停顿。\n\n'
+            '## 豁免记录\n'
+            '- R1-EXEMPT：保留一处强语义反转。\n\n'
+            '## R-DNA校验\n'
+            '- 已保护的 DNA 特征：短促停顿、角色口头禅。\n',
         )
         expect_success(
             [

@@ -29,6 +29,7 @@ python scripts/assemble_prompt.py --project-dir /your/project --step project_car
 ## 可选流程
 - `0`：benchmark-lite
 - `humanizer`：定稿润色
+  - 已移植完整版去 AI 痕迹规则：R1 对比句式清理 / R2 稀疏排版清理 / R3 高频 AI 词清理 / R-DNA 保护 / 豁免预算
 
 ## Lite Pro 补强
 - Step 0 支持 `benchmark/style_notes.md` + 本地 `style_snippets/manifest.yaml`
@@ -53,6 +54,11 @@ python scripts/assemble_prompt.py --project-dir /your/workdir --step humanizer -
 python scripts/landing.py humanizer --project-dir /your/workdir --chapter-file /your/workdir/chapter_1.md --input-file /your/workdir/humanizer_output.md
 python scripts/validate_state.py --project-dir /your/workdir --for-step humanizer --chapter-file /your/workdir/chapter_1.md
 ```
+
+Humanizer 输出必须包含：
+- `## 修改说明`
+- `## 豁免记录`
+- `## R-DNA校验`
 
 ## 历史资产
 - 已退出 Lite 主流程的旧模板、旧配置、旧脚本会迁入 `legacy/`，避免继续污染当前运行时入口
