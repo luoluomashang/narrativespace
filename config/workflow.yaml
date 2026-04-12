@@ -1,34 +1,25 @@
 version: 11.0.0
 system: narrativespace-lite
-architecture: 4+2
+architecture: 4+1
 principles:
-  - 只规划当前卷与当前章，不做旧版重型全书引擎
+  - benchmark-lite 是强制前置，后续步骤必须读取文风指纹结果
   - 每次只执行一个步骤，并等待用户确认
   - 运行时只读取 `.xushikj/` 下的项目文件
   - 进入下一步骤前，必须先清除 workflow.pending_user_confirmation 门禁
 steps:
-  - id: 0
-    name: benchmark-lite
-    optional: true
+  - id: benchmark-lite
+    name: 对标 / 文风克隆
+    optional: false
     outputs:
       - benchmark/style_notes.md
-      - benchmark/style_snippets/
-  - id: project_card
-    name: 快速立项
+  - id: worldbuilding
+    name: 世界观与力量体系讨论
     outputs:
-      - outline/project_card.md
-  - id: 4
-    name: 当前卷一页纲
+      - worldbuilding/worldview.md
+  - id: chapter-outline
+    name: 章纲讨论
     outputs:
-      - outline/volume_1_one_page.md
-  - id: 7
-    name: 轻量知识库
-    outputs:
-      - knowledge_base.json
-  - id: 8
-    name: 章节卡
-    outputs:
-      - scenes/chapter_N.md
+      - chapter_outlines/chapter_N.md
   - id: 10
     name: 正文写作
     outputs:

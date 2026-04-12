@@ -1,25 +1,17 @@
 {
   "version": "11.0.0",
   "project_name": "",
-  "current_step": "0",
-  "current_volume": 1,
+  "current_step": "benchmark-lite",
   "current_chapter": 1,
-  "writing_mode": "pipeline",
+  "writing_mode": "style-clone",
   "reply_length": null,
   "target_platform": "",
-  "benchmark_lite_enabled": false,
   "last_updated": "",
   "active_style_profile": "",
   "last_completed_steps": [],
   "benchmark_state": {
-    "linked_author": "",
-    "style_library_path": "~/.narrativespace/style_library",
-    "style_notes_path": "benchmark/style_notes.md",
-    "style_snippet_manifest": "benchmark/style_snippets/manifest.yaml"
-  },
-  "memory_state": {
-    "summary_mode": "tiered",
-    "memory_file": "memory.md"
+    "required": true,
+    "style_notes_path": "benchmark/style_notes.md"
   },
   "workflow": {
     "current_step_status": "idle",
@@ -34,10 +26,8 @@
   },
   "recent_outputs": {
     "style_notes": "benchmark/style_notes.md",
-    "project_card": "outline/project_card.md",
-    "volume_one_page": "outline/volume_1_one_page.md",
-    "knowledge_base": "knowledge_base.json",
-    "latest_scene_card": "scenes/chapter_1.md",
+    "worldview": "worldbuilding/worldview.md",
+    "latest_chapter_outline": "chapter_outlines/chapter_1.md",
     "latest_chapter": "chapters/chapter_1.md",
     "latest_humanized": "humanized/chapter_1.md",
     "summary_index": "summaries/summary_index.md",

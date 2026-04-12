@@ -20,17 +20,19 @@ ACTIVE_CONFIGS = [
     'writing_rules.yaml',
     'style_rules.yaml',
     'benchmark_lite.yaml',
+    'humanizer_rules.yaml',
 ]
-OPTIONAL_CONFIGS = ['human_touch_rules.yaml']
 TEXT_TEMPLATES = {
     'summaries/summary_index.md': SKILL_ROOT / 'templates' / 'summary_index_template.md',
     'memory.md': SKILL_ROOT / 'templates' / 'memory_template.md',
     'benchmark/style_notes.md': SKILL_ROOT / 'templates' / 'style_notes_template.md',
+    'worldbuilding/worldview.md': SKILL_ROOT / 'templates' / 'worldview_template.md',
 }
 JSON_TEMPLATES = {
     'state.json': SKILL_ROOT / 'templates' / 'state_template.json',
-    'knowledge_base.json': SKILL_ROOT / 'templates' / 'kb_template.json',
 }
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
 
@@ -44,13 +46,6 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _merge_dict(defaults: dict[str, Any], existing: dict[str, Any]) -> dict[str, Any]:
-    """Merge Lite defaults into an existing payload.
-
-    Dicts merge recursively. Lists are intentionally treated as user-owned content and
-    therefore replaced wholesale by the existing value instead of concatenating defaults.
-    When an existing key is absent, the default list remains in place.
-    Scalar values use the existing value whenever the key is present.
-    """
     merged = defaults.copy()
     for key, value in existing.items():
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
@@ -67,21 +62,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--force', action='store_true', help='Overwrite generated Lite files')
     parser.add_argument('--yes', '-y', action='store_true', help='Reserved for non-interactive compatibility')
     parser.add_argument('--reply-length', type=int, help='Minimum Chinese characters required for each chapter')
-    parser.add_argument('--target-platform', type=str, help='Target publishing platform, e.g. fanqie')
-    parser.add_argument('--build-rag-index', action='store_true', help=argparse.SUPPRESS)
-    parser.add_argument('--init-volume-timeline', action='store_true', help=argparse.SUPPRESS)
-    parser.add_argument('--volume', type=int, default=1, help=argparse.SUPPRESS)
-    parser.add_argument('--global-dna-path', type=Path, help=argparse.SUPPRESS)
-    parser.add_argument('--link-author', type=str, help=argparse.SUPPRESS)
+    parser.add_argument('--target-platform', type=str, help='Optional target publishing platform context')
     return parser
 
 
 def ensure_dirs(xushikj_dir: Path) -> None:
     for relative in [
         'config',
-        'outline',
-        'benchmark/style_snippets',
-        'scenes',
+        'benchmark',
+        'worldbuilding',
+        'chapter_outlines',
         'chapters',
         'summaries',
         'drafts',
@@ -92,7 +82,7 @@ def ensure_dirs(xushikj_dir: Path) -> None:
 
 def copy_configs(xushikj_dir: Path, force: bool) -> list[str]:
     log: list[str] = []
-    for filename in ACTIVE_CONFIGS + OPTIONAL_CONFIGS:
+    for filename in ACTIVE_CONFIGS:
         src = SKILL_ROOT / 'config' / filename
         if not src.exists():
             continue
@@ -175,13 +165,8 @@ def main() -> int:
     log.extend(apply_state_overrides(xushikj_dir, args.reply_length, args.target_platform))
 
     print(f'[init] Lite project ready: {xushikj_dir}')
-    if args.reply_length is None or not args.target_platform:
-        missing_fields: list[str] = []
-        if args.reply_length is None:
-            missing_fields.append('reply_length')
-        if not args.target_platform:
-            missing_fields.append('target_platform')
-        print(f"[init] reminder: 请在进入 planning / scenes / writing 前明确确认 {', '.join(missing_fields)}。")
+    if args.reply_length is None:
+        print('[init] reminder: 请在进入 writing 前明确确认 reply_length。')
     for line in log:
         print(line)
     return 0

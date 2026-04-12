@@ -1,16 +1,12 @@
 version: 11.0.0
 benchmark_lite:
   goals:
-    - 提炼题材节奏、叙事气质、章节钩子偏好
-    - 允许保留少量风格切片作为写作参考
-    - 输出可直接落盘到 benchmark/style_notes.md 的轻量风格备忘
+    - 提炼原作者可执行的《文风特征指南》
+    - 输出词汇偏好、句式节奏、标点习惯、情感基调、修辞与细节偏好
+    - 输出 AI 套话黑名单与小步续写约束，供 writing 直接注入
   outputs:
     - benchmark/style_notes.md
-    - benchmark/style_snippets/*.md（可选）
-    - benchmark/style_snippets/manifest.yaml（可选）
   constraints:
-    - 不做重型 DNA 提取
-    - 不做 clone prompt
-    - 可选调用 scripts/slice_library.py 将原文切片落到本地 style_snippets
-    - source_available 的 scene_type 必须至少保留 3 个不重复的合格切片；仅 source_missing 类型允许为空
-    - style_snippet 必须通过 chinese_char_count 中文字数校验（350-500）与原文精确摘录校验
+    - 优先服务语感对齐，不再围绕 scene_type 切片建模
+    - 不做空泛文学评论，必须给出可直接约束写作的规则
+    - 若样本文本不足以支撑判断，必须明确写出不确定项，不得编造原作者习惯

@@ -13,195 +13,195 @@ from encoding_utils import read_text_utf8, reconfigure_stdio_utf8
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_MODULES = {
-    "benchmark-lite",
-    "planning",
-    "knowledge-base",
-    "scenes",
-    "writing",
-    "humanizer",
+    'benchmark-lite',
+    'worldbuilding',
+    'chapter-outline',
+    'writing',
+    'humanizer',
 }
 EXPECTED_PROMPT_TEMPLATES = {
-    "step_0_benchmark_lite.md",
-    "step_4_one_page.md",
-    "step_7_kb.md",
-    "step_8_scene_card.md",
-    "step_10_writing.md",
-    "step_humanizer.md",
-    "step_project_card.md",
+    'step_0_benchmark_lite.md',
+    'step_worldbuilding.md',
+    'step_chapter_outline.md',
+    'step_10_writing.md',
+    'step_humanizer.md',
 }
 EXPECTED_CONFIGS = {
-    "benchmark_lite.yaml",
-    "human_touch_rules.yaml",
-    "humanizer_rules.yaml",
-    "meta_rules.yaml",
-    "style_rules.yaml",
-    "workflow.yaml",
-    "writing_rules.yaml",
+    'benchmark_lite.yaml',
+    'human_touch_rules.yaml',
+    'humanizer_rules.yaml',
+    'meta_rules.yaml',
+    'style_rules.yaml',
+    'workflow.yaml',
+    'writing_rules.yaml',
 }
 EXPECTED_SCRIPTS = {
-    "analyze_dna.py",
-    "assemble_prompt.py",
-    "chinese_char_count.py",
-    "encoding_utils.py",
-    "init.py",
-    "kb_slicer.py",
-    "landing.py",
-    "regression_workflow_guards.py",
-    "slice_library.py",
-    "update_skill_metadata.py",
-    "validate_references.py",
-    "validate_state.py",
-    "workflow_state.py",
+    'analyze_dna.py',
+    'assemble_prompt.py',
+    'chinese_char_count.py',
+    'encoding_utils.py',
+    'init.py',
+    'kb_slicer.py',
+    'landing.py',
+    'regression_workflow_guards.py',
+    'slice_library.py',
+    'update_skill_metadata.py',
+    'validate_references.py',
+    'validate_state.py',
+    'workflow_state.py',
 }
 EXPECTED_ROLE_HEADINGS = {
-    "step_0_benchmark_lite.md": "## 模块身份",
-    "step_project_card.md": "## 模块身份",
-    "step_4_one_page.md": "## 模块身份",
-    "step_7_kb.md": "## 模块身份",
-    "step_8_scene_card.md": "## 模块身份",
-    "step_10_writing.md": "## 模块身份",
-    "step_humanizer.md": "## 模块身份",
+    'step_0_benchmark_lite.md': '## 模块身份',
+    'step_worldbuilding.md': '## 模块身份',
+    'step_chapter_outline.md': '## 模块身份',
+    'step_10_writing.md': '## 模块身份',
+    'step_humanizer.md': '## 模块身份',
 }
-LEGACY_MODULE_PATTERNS = ('"modules/benchmark":', '"modules/interactive":')
 
 
 def _extract_version(text: str) -> str | None:
-    match = re.search(r"version:\s*([\d.]+)", text)
+    match = re.search(r'version:\s*([\d.]+)', text)
     return match.group(1) if match else None
 
 
 def validate_all() -> bool:
     issues: list[str] = []
 
-    modules_root = SKILL_ROOT / "modules"
+    modules_root = SKILL_ROOT / 'modules'
     module_names = {path.name for path in modules_root.iterdir() if path.is_dir()}
     missing = EXPECTED_MODULES - module_names
     extra = {name for name in module_names if name not in EXPECTED_MODULES}
     if missing:
-        issues.append(f"缺少 Lite 模块: {sorted(missing)}")
+        issues.append(f'缺少 Lite 模块: {sorted(missing)}')
     if extra:
-        issues.append(f"存在未纳入 Lite 主架构的模块目录: {sorted(extra)}")
+        issues.append(f'存在未纳入 Lite 主架构的模块目录: {sorted(extra)}')
 
-    root_skill_text = read_text_utf8(SKILL_ROOT / "SKILL.md", "")
+    root_skill_text = read_text_utf8(SKILL_ROOT / 'SKILL.md', '')
     root_version = _extract_version(root_skill_text)
     if not root_version:
-        issues.append("根 SKILL.md 缺少 version")
+        issues.append('根 SKILL.md 缺少 version')
 
     for module_name in sorted(EXPECTED_MODULES & module_names):
-        skill_path = modules_root / module_name / "SKILL.md"
-        prompt_path = modules_root / module_name / "prompt.md"
+        skill_path = modules_root / module_name / 'SKILL.md'
+        prompt_path = modules_root / module_name / 'prompt.md'
         if not skill_path.exists():
-            issues.append(f"模块缺少 SKILL.md: {module_name}")
+            issues.append(f'模块缺少 SKILL.md: {module_name}')
             continue
         if not prompt_path.exists():
-            issues.append(f"模块缺少 prompt.md: {module_name}")
-        version = _extract_version(read_text_utf8(skill_path, ""))
+            issues.append(f'模块缺少 prompt.md: {module_name}')
+        version = _extract_version(read_text_utf8(skill_path, ''))
         if version != root_version:
-            issues.append(f"版本不一致: {module_name}={version}, root={root_version}")
+            issues.append(f'版本不一致: {module_name}={version}, root={root_version}')
 
     required_templates = sorted(set(TEMPLATES.values()))
-    prompt_root = SKILL_ROOT / "templates" / "prompts"
+    prompt_root = SKILL_ROOT / 'templates' / 'prompts'
     for name in required_templates:
         if not (prompt_root / name).exists():
-            issues.append(f"缺少 Prompt 模板: templates/prompts/{name}")
+            issues.append(f'缺少 Prompt 模板: templates/prompts/{name}')
     for name, heading in EXPECTED_ROLE_HEADINGS.items():
         template_path = prompt_root / name
         if template_path.exists():
-            template_text = read_text_utf8(template_path, "")
+            template_text = read_text_utf8(template_path, '')
             if heading not in template_text:
-                issues.append(f"Prompt 模板缺少角色定位结构: templates/prompts/{name}")
+                issues.append(f'Prompt 模板缺少角色定位结构: templates/prompts/{name}')
     active_templates = {path.name for path in prompt_root.iterdir() if path.is_file()}
     extra_templates = active_templates - EXPECTED_PROMPT_TEMPLATES
     if extra_templates:
-        issues.append(f"templates/prompts 存在未清理旧模板: {sorted(extra_templates)}")
+        issues.append(f'templates/prompts 存在未清理旧模板: {sorted(extra_templates)}')
 
-    config_root = SKILL_ROOT / "config"
-    for name in sorted(EXPECTED_CONFIGS - {"human_touch_rules.yaml"}):
+    config_root = SKILL_ROOT / 'config'
+    for name in sorted(EXPECTED_CONFIGS - {'human_touch_rules.yaml'}):
         if not (config_root / name).exists():
-            issues.append(f"缺少配置文件: config/{name}")
+            issues.append(f'缺少配置文件: config/{name}')
     active_configs = {path.name for path in config_root.iterdir() if path.is_file()}
     extra_configs = active_configs - EXPECTED_CONFIGS
     if extra_configs:
-        issues.append(f"config/ 存在未清理旧配置: {sorted(extra_configs)}")
+        issues.append(f'config/ 存在未清理旧配置: {sorted(extra_configs)}')
 
-    scripts_root = SKILL_ROOT / "scripts"
+    scripts_root = SKILL_ROOT / 'scripts'
     active_scripts = {path.name for path in scripts_root.iterdir() if path.is_file()}
     extra_scripts = active_scripts - EXPECTED_SCRIPTS
     if extra_scripts:
-        issues.append(f"scripts/ 存在未清理旧脚本: {sorted(extra_scripts)}")
+        issues.append(f'scripts/ 存在未清理旧脚本: {sorted(extra_scripts)}')
 
-    root_prompt_text = read_text_utf8(SKILL_ROOT / "prompt.md", "")
-    if "benchmark-lite、planning、knowledge-base、scenes、writing、humanizer" not in root_prompt_text:
-        issues.append("prompt.md 路由表未保持 Lite active 模块口径")
-    if "在进入 planning / scenes / writing 前" not in root_prompt_text:
-        issues.append("prompt.md 缺少 scenes 前置门禁口径")
-    if "humanizer 是唯一允许脱离 `.xushikj/` 单独使用的模块" not in root_prompt_text:
-        issues.append("prompt.md 缺少 humanizer 独立使用口径")
-    if "python scripts/landing.py writing" not in root_prompt_text:
-        issues.append("prompt.md 缺少写作落盘入口口径")
-    if "python scripts/workflow_state.py confirm" not in root_prompt_text:
-        issues.append("prompt.md 缺少流程确认入口口径")
-    if "R1/R2/R3/R-DNA" not in root_prompt_text:
-        issues.append("prompt.md 缺少完整版 humanizer 口径")
+    root_prompt_text = read_text_utf8(SKILL_ROOT / 'prompt.md', '')
+    if 'benchmark-lite、worldbuilding、chapter-outline、writing、humanizer' not in root_prompt_text:
+        issues.append('prompt.md 路由表未保持 Lite active 模块口径')
+    if 'benchmark-lite 是强制前置' not in root_prompt_text:
+        issues.append('prompt.md 缺少 benchmark 强制前置口径')
+    if 'reply_length' not in root_prompt_text:
+        issues.append('prompt.md 缺少 writing 字数下限门禁口径')
+    if 'humanizer 是唯一允许脱离 `.xushikj/` 单独使用的模块' not in root_prompt_text:
+        issues.append('prompt.md 缺少 humanizer 独立使用口径')
+    if 'python scripts/landing.py writing' not in root_prompt_text:
+        issues.append('prompt.md 缺少写作落盘入口口径')
+    if 'python scripts/workflow_state.py confirm' not in root_prompt_text:
+        issues.append('prompt.md 缺少流程确认入口口径')
+    if 'R1/R2/R3/R-DNA' not in root_prompt_text:
+        issues.append('prompt.md 缺少完整版 humanizer 口径')
 
-    if "在进入 planning / scenes / writing 前" not in root_skill_text:
-        issues.append("SKILL.md 缺少 scenes 前置门禁口径")
-    if "除 humanizer 外，所有模块都以 `.xushikj/` 为唯一运行时目录" not in root_skill_text:
-        issues.append("SKILL.md 缺少 humanizer 独立运行口径")
-    if "python scripts/landing.py writing" not in root_skill_text:
-        issues.append("SKILL.md 缺少写作落盘入口口径")
-    if "R1/R2/R3/R-DNA" not in root_skill_text:
-        issues.append("SKILL.md 缺少完整版 humanizer 口径")
+    if 'benchmark-lite 完成前，不得进入 worldbuilding / chapter-outline / writing' not in root_skill_text:
+        issues.append('SKILL.md 缺少 benchmark 强制前置口径')
+    if '除 humanizer 外，所有模块都以 `.xushikj/` 为唯一运行时目录' not in root_skill_text:
+        issues.append('SKILL.md 缺少 humanizer 独立运行口径')
+    if '只校验 `reply_length` 对应的最小中文字符数' not in root_skill_text:
+        issues.append('SKILL.md 缺少仅保留下限的字数规则')
+    if 'R1/R2/R3/R-DNA' not in root_skill_text:
+        issues.append('SKILL.md 缺少完整版 humanizer 口径')
 
-    readme_text = read_text_utf8(SKILL_ROOT / "README.md", "")
-    if "benchmark-lite" not in readme_text:
-        issues.append("README.md 缺少 benchmark-lite active 命名")
-    if "python scripts/landing.py writing" not in readme_text:
-        issues.append("README.md 缺少写作落盘命令")
+    readme_text = read_text_utf8(SKILL_ROOT / 'README.md', '')
+    if 'benchmark-lite' not in readme_text or 'worldbuilding' not in readme_text or 'chapter-outline' not in readme_text:
+        issues.append('README.md 缺少新 Lite 主流程命名')
+    if '不再有番茄等平台硬上限' not in readme_text:
+        issues.append('README.md 缺少移除上限说明')
 
-    quickstart_text = read_text_utf8(SKILL_ROOT / "QUICKSTART.md", "")
-    if "--step 8 --chapter 1" not in quickstart_text:
-        issues.append("QUICKSTART.md 缺少 scenes 组装示例")
-    if "--step humanizer --chapter-file" not in quickstart_text:
-        issues.append("QUICKSTART.md 缺少 humanizer 独立示例")
-    if "python scripts/workflow_state.py confirm" not in quickstart_text:
-        issues.append("QUICKSTART.md 缺少流程确认示例")
-    if "## 豁免记录" not in quickstart_text or "## R-DNA校验" not in quickstart_text:
-        issues.append("QUICKSTART.md 缺少 humanizer 结构化输出口径")
+    quickstart_text = read_text_utf8(SKILL_ROOT / 'QUICKSTART.md', '')
+    if '--step worldbuilding' not in quickstart_text:
+        issues.append('QUICKSTART.md 缺少 worldbuilding 组装示例')
+    if '--step chapter-outline --chapter 1' not in quickstart_text:
+        issues.append('QUICKSTART.md 缺少 chapter-outline 组装示例')
+    if '--step humanizer --chapter-file' not in quickstart_text:
+        issues.append('QUICKSTART.md 缺少 humanizer 独立示例')
+    if 'python scripts/workflow_state.py confirm' not in quickstart_text:
+        issues.append('QUICKSTART.md 缺少流程确认示例')
+    if '## 豁免记录' not in quickstart_text or '## R-DNA校验' not in quickstart_text:
+        issues.append('QUICKSTART.md 缺少 humanizer 结构化输出口径')
 
-    validate_state_text = read_text_utf8(scripts_root / "validate_state.py", "")
-    if '"humanizer": ["chapter_file"]' not in validate_state_text:
-        issues.append("validate_state.py 的 humanizer 门禁仍未独立")
+    validate_state_text = read_text_utf8(scripts_root / 'validate_state.py', '')
+    if 'reply_length' not in validate_state_text or 'target_platform' in validate_state_text.split('STEP_DEPENDENCIES', 1)[-1]:
+        issues.append('validate_state.py 门禁未切换到仅保留 reply_length')
 
-    landing_text = read_text_utf8(scripts_root / "landing.py", "")
-    if "chapter_notes" not in landing_text or "mark_step_complete" not in landing_text:
-        issues.append("landing.py 缺少回写知识库或流程门禁收口")
-    if "豁免记录" not in landing_text or "R-DNA校验" not in landing_text:
-        issues.append("landing.py 缺少完整版 humanizer 结构化落盘")
+    landing_text = read_text_utf8(scripts_root / 'landing.py', '')
+    if 'knowledge_base' in landing_text or 'chapter_notes' in landing_text:
+        issues.append('landing.py 仍残留旧 KB 回写逻辑')
+    if 'maximum=' in landing_text:
+        issues.append('landing.py 仍残留字数上限校验')
+    if '豁免记录' not in landing_text or 'R-DNA校验' not in landing_text:
+        issues.append('landing.py 缺少完整版 humanizer 结构化落盘')
 
-    workflow_text = read_text_utf8(scripts_root / "workflow_state.py", "")
-    if "pending_user_confirmation" not in workflow_text or "confirm" not in workflow_text:
-        issues.append("workflow_state.py 缺少确认门禁逻辑")
+    workflow_text = read_text_utf8(scripts_root / 'workflow_state.py', '')
+    if 'worldbuilding' not in workflow_text or 'chapter-outline' not in workflow_text:
+        issues.append('workflow_state.py 未切换到新步骤链路')
 
-    humanizer_template_text = read_text_utf8(prompt_root / "step_humanizer.md", "")
-    if "R1-EXEMPT" not in humanizer_template_text or "## R-DNA校验" not in humanizer_template_text:
-        issues.append("step_humanizer.md 尚未移植完整版去AI规则")
+    humanizer_template_text = read_text_utf8(prompt_root / 'step_humanizer.md', '')
+    if 'R1-EXEMPT' not in humanizer_template_text or '## R-DNA校验' not in humanizer_template_text:
+        issues.append('step_humanizer.md 尚未移植完整版去AI规则')
 
-    metadata_sync_text = read_text_utf8(scripts_root / "update_skill_metadata.py", "")
-    if any(pattern in metadata_sync_text for pattern in LEGACY_MODULE_PATTERNS):
-        issues.append("update_skill_metadata.py 仍残留旧模块命名")
+    metadata_sync_text = read_text_utf8(scripts_root / 'update_skill_metadata.py', '')
+    if 'modules/planning' in metadata_sync_text or 'modules/scenes' in metadata_sync_text or 'modules/knowledge-base' in metadata_sync_text:
+        issues.append('update_skill_metadata.py 仍残留旧模块命名')
 
-    print("=" * 60)
-    print("Lite references validation")
-    print("=" * 60)
+    print('=' * 60)
+    print('Lite references validation')
+    print('=' * 60)
     if issues:
         for issue in issues:
-            print(f"[ERROR] {issue}")
+            print(f'[ERROR] {issue}')
         return False
-    print("[OK] Lite 模块、模板、配置均已就位")
+    print('[OK] Lite 模块、模板、配置均已就位')
     return True
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     reconfigure_stdio_utf8()
     raise SystemExit(0 if validate_all() else 1)

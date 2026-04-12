@@ -1,52 +1,41 @@
 # 叙事空间 Lite v11.0
 
-以 `project_card -> 卷纲 -> 轻量 KB -> 章节卡 -> 正文写作` 为主干的 Lite 创作系统。
+以 `benchmark-lite -> 世界观与力量体系讨论 -> 章纲讨论 -> 正文写作` 为主干的 Lite 创作系统。
 
-## 核心模块
-- planning
-- knowledge-base
-- scenes
+## 强制模块
+- benchmark-lite
+- worldbuilding
+- chapter-outline
 - writing
 
 ## 可选模块
-- benchmark-lite
 - humanizer
 
 ## 快速开始
 ```bash
-python scripts/init.py --project-dir /your/project --yes --reply-length 2500 --target-platform fanqie
+python scripts/init.py --project-dir /your/project --yes --reply-length 2500
 python scripts/assemble_prompt.py --project-dir /your/project --status
-python scripts/assemble_prompt.py --project-dir /your/project --step project_card
+python scripts/assemble_prompt.py --project-dir /your/project --step benchmark-lite
 ```
 
 ## Lite 主流程
-1. `project_card`
-2. `4`（当前卷一页纲）
-3. `7`（轻量知识库）
-4. `8`（当前章/未来 1~3 章章节卡）
-5. `10`（正文写作）
+1. `benchmark-lite`
+2. `worldbuilding`
+3. `chapter-outline`
+4. `10`（正文写作）
+5. `humanizer`（可选）
 
-## 可选流程
-- `0`：benchmark-lite
-- `humanizer`：定稿润色
-  - 已移植完整版去 AI 痕迹规则：R1 对比句式清理 / R2 稀疏排版清理 / R3 高频 AI 词清理 / R-DNA 保护 / 豁免预算
+## 关键变化
+- benchmark-lite 改为必选前置，不可跳过
+- 写作主流程不再使用 `project_card / 卷纲 / 轻量 KB / 章节卡`
+- 写作只校验最小中文字符数，不再有番茄等平台硬上限
+- writing 以《文风特征指南》+ 世界观设定 + 当前章章纲为硬输入
 
-## Lite Pro 补强
-- Step 0 支持 `benchmark/style_notes.md` + 本地 `style_snippets/manifest.yaml`
-- Step 10 会读取 `summary_index.md` + `memory.md` + 场景类型驱动的风格切片
-- Step 10 模型输出需先落盘：
-  ```bash
-  python scripts/landing.py writing --project-dir /your/project --chapter 1 --input-file /your/project/.xushikj/drafts/ch1_output.md
-  ```
-- 正文落盘后需执行：
-  ```bash
-  python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1
-  ```
-  该脚本会调用 `scripts/chinese_char_count.py` 做最小中文字符数强校验
-- 若 `workflow.pending_user_confirmation=true`，需先执行：
-  ```bash
-  python scripts/workflow_state.py confirm --project-dir /your/project
-  ```
+## 写作落盘
+```bash
+python scripts/landing.py writing --project-dir /your/project --chapter 1 --input-file /your/project/.xushikj/drafts/ch1_output.md
+python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1
+```
 
 ## Humanizer 独立使用
 ```bash
@@ -60,12 +49,8 @@ Humanizer 输出必须包含：
 - `## 豁免记录`
 - `## R-DNA校验`
 
-## 历史资产
-- 已退出 Lite 主流程的旧模板、旧配置、旧脚本会迁入 `legacy/`，避免继续污染当前运行时入口
-
 ## 验证命令
 ```bash
 python scripts/validate_references.py
-python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1
 python scripts/regression_workflow_guards.py --project-dir /tmp/narrativespace-smoke
 ```
