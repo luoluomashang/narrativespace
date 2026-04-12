@@ -44,11 +44,13 @@ EXPECTED_SCRIPTS = {
     "encoding_utils.py",
     "init.py",
     "kb_slicer.py",
+    "landing.py",
     "regression_workflow_guards.py",
     "slice_library.py",
     "update_skill_metadata.py",
     "validate_references.py",
     "validate_state.py",
+    "workflow_state.py",
 }
 EXPECTED_ROLE_HEADINGS = {
     "step_0_benchmark_lite.md": "## 模块身份",
@@ -133,25 +135,43 @@ def validate_all() -> bool:
         issues.append("prompt.md 缺少 scenes 前置门禁口径")
     if "humanizer 是唯一允许脱离 `.xushikj/` 单独使用的模块" not in root_prompt_text:
         issues.append("prompt.md 缺少 humanizer 独立使用口径")
+    if "python scripts/landing.py writing" not in root_prompt_text:
+        issues.append("prompt.md 缺少写作落盘入口口径")
+    if "python scripts/workflow_state.py confirm" not in root_prompt_text:
+        issues.append("prompt.md 缺少流程确认入口口径")
 
     if "在进入 planning / scenes / writing 前" not in root_skill_text:
         issues.append("SKILL.md 缺少 scenes 前置门禁口径")
     if "除 humanizer 外，所有模块都以 `.xushikj/` 为唯一运行时目录" not in root_skill_text:
         issues.append("SKILL.md 缺少 humanizer 独立运行口径")
+    if "python scripts/landing.py writing" not in root_skill_text:
+        issues.append("SKILL.md 缺少写作落盘入口口径")
 
     readme_text = read_text_utf8(SKILL_ROOT / "README.md", "")
     if "benchmark-lite" not in readme_text:
         issues.append("README.md 缺少 benchmark-lite active 命名")
+    if "python scripts/landing.py writing" not in readme_text:
+        issues.append("README.md 缺少写作落盘命令")
 
     quickstart_text = read_text_utf8(SKILL_ROOT / "QUICKSTART.md", "")
     if "--step 8 --chapter 1" not in quickstart_text:
         issues.append("QUICKSTART.md 缺少 scenes 组装示例")
     if "--step humanizer --chapter-file" not in quickstart_text:
         issues.append("QUICKSTART.md 缺少 humanizer 独立示例")
+    if "python scripts/workflow_state.py confirm" not in quickstart_text:
+        issues.append("QUICKSTART.md 缺少流程确认示例")
 
     validate_state_text = read_text_utf8(scripts_root / "validate_state.py", "")
     if '"humanizer": ["chapter_file"]' not in validate_state_text:
         issues.append("validate_state.py 的 humanizer 门禁仍未独立")
+
+    landing_text = read_text_utf8(scripts_root / "landing.py", "")
+    if "chapter_notes" not in landing_text or "mark_step_complete" not in landing_text:
+        issues.append("landing.py 缺少回写知识库或流程门禁收口")
+
+    workflow_text = read_text_utf8(scripts_root / "workflow_state.py", "")
+    if "pending_user_confirmation" not in workflow_text or "confirm" not in workflow_text:
+        issues.append("workflow_state.py 缺少确认门禁逻辑")
 
     metadata_sync_text = read_text_utf8(scripts_root / "update_skill_metadata.py", "")
     if '"modules/benchmark":' in metadata_sync_text or '"modules/interactive":' in metadata_sync_text:

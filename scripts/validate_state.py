@@ -6,12 +6,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
+from chinese_char_count import validate_chinese_char_count
 from encoding_utils import read_json_utf8, reconfigure_stdio_utf8, subprocess_utf8_kwargs
+from workflow_state import ensure_workflow_state
 
 STEP_DEPENDENCIES = {
     "project_card": ["reply_length", "target_platform"],
@@ -57,6 +58,8 @@ def _resolve_humanizer_chapter_path(project_dir: Path, chapter: int | None, chap
 
 
 def _count_chinese_chars_with_script(chapter_path: Path) -> int:
+    import subprocess
+
     script_path = Path(__file__).resolve().parent / "chinese_char_count.py"
     proc = subprocess.run(
         [sys.executable, str(script_path), "--input", str(chapter_path), "--json"],
@@ -110,8 +113,11 @@ def validate(
         return 2
 
     state = _load_json(state_path)
+    state = ensure_workflow_state(state)
+    workflow = state.get("workflow", {})
     infos.append(f"current_step={state.get('current_step', '')}")
     infos.append(f"current_chapter={state.get('current_chapter', 1)}")
+    infos.append(f"pending_user_confirmation={str(bool(workflow.get('pending_user_confirmation'))).lower()}")
 
     kb_path = xushikj_dir / "knowledge_base.json"
     summary_path = xushikj_dir / "summaries" / "summary_index.md"
@@ -151,11 +157,13 @@ def validate(
         else:
             infos.append(f"chapter_{effective_chapter}_zh_chars={zh_chars}")
             infos.append("chapter_length_check=scripts/chinese_char_count.py")
-            if zh_chars < threshold:
-                errors.append(f"chapter_{effective_chapter} 中文字数不足：{zh_chars} < {threshold}")
-            target_platform = str(state.get("target_platform", "")).strip().lower()
-            if target_platform == "fanqie" and zh_chars > 3500:
-                errors.append(f"chapter_{effective_chapter} 中文字数超出番茄硬门槛：{zh_chars} > 3500")
+            _, count_errors = validate_chinese_char_count(
+                chapter_path.read_text(encoding="utf-8-sig", errors="replace"),
+                minimum=threshold,
+                maximum=3500 if str(state.get("target_platform", "")).strip().lower() == "fanqie" else None,
+                label=f"chapter_{effective_chapter}",
+            )
+            errors.extend(count_errors)
 
     print(f"[validate_state] project={project_dir}")
     for msg in infos:

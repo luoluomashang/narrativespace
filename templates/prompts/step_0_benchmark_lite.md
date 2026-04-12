@@ -33,10 +33,11 @@
    - 对白与叙述语气
    - 禁止模仿的表面特征
 2. 如果用户提供了可直接切片的原文，请额外输出 `style_snippets` 建议清单：
-   - scene_type（combat / face_slap / negotiation / emotional / reveal / daily / system）
+   - scene_type（combat / face_slap / negotiation / emotional / reveal / daily / system / training / romance / mystery / power_up / chase）
    - snippet_file_name
    - 片段用途
    - 为什么适合该 scene_type
+   - 预计中文字符数（需控制在 350-500）
 3. 如果只有作品名、简介或少量摘要，没有原文切片条件，明确写“本次仅生成 style_notes，不生成 style_snippets”
 
 只输出对标结果正文，不要解释流程。

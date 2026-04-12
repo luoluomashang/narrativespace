@@ -176,7 +176,7 @@ def main() -> int:
 
     print(f'[init] Lite project ready: {xushikj_dir}')
     if args.reply_length is None or not args.target_platform:
-        print('[init] reminder: 请在进入 planning / writing 前明确确认 reply_length 与 target_platform。')
+        print('[init] reminder: 请在进入 planning / scenes / writing 前明确确认 reply_length 与 target_platform。')
     for line in log:
         print(line)
     return 0

@@ -37,13 +37,22 @@ python scripts/assemble_prompt.py --project-dir /your/project --step 8 --chapter
 python scripts/assemble_prompt.py --project-dir /your/project --step 10 --chapter 1 --output file --output-file /your/project/.xushikj/drafts/ch1_writing_prompt.md
 ```
 
-## 8. 独立使用 Humanizer
+## 8. 落盘正文并等待确认
+```bash
+python scripts/landing.py writing --project-dir /your/project --chapter 1 --input-file /your/project/.xushikj/drafts/ch1_output.md
+python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1
+python scripts/workflow_state.py status --project-dir /your/project
+python scripts/workflow_state.py confirm --project-dir /your/project
+```
+
+## 9. 独立使用 Humanizer
 ```bash
 python scripts/assemble_prompt.py --project-dir /your/workdir --step humanizer --chapter-file /your/workdir/chapter_1.md
+python scripts/landing.py humanizer --project-dir /your/workdir --chapter-file /your/workdir/chapter_1.md --input-file /your/workdir/humanizer_output.md
 python scripts/validate_state.py --project-dir /your/workdir --for-step humanizer --chapter-file /your/workdir/chapter_1.md
 ```
 
-## 9. 校验写作前置 / 写后验收
+## 10. 校验写作前置 / 写后验收
 ```bash
 python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1
 ```

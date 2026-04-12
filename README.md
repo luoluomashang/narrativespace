@@ -33,15 +33,24 @@ python scripts/assemble_prompt.py --project-dir /your/project --step project_car
 ## Lite Pro 补强
 - Step 0 支持 `benchmark/style_notes.md` + 本地 `style_snippets/manifest.yaml`
 - Step 10 会读取 `summary_index.md` + `memory.md` + 场景类型驱动的风格切片
+- Step 10 模型输出需先落盘：
+  ```bash
+  python scripts/landing.py writing --project-dir /your/project --chapter 1 --input-file /your/project/.xushikj/drafts/ch1_output.md
+  ```
 - 正文落盘后需执行：
   ```bash
   python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1
   ```
   该脚本会调用 `scripts/chinese_char_count.py` 做最小中文字符数强校验
+- 若 `workflow.pending_user_confirmation=true`，需先执行：
+  ```bash
+  python scripts/workflow_state.py confirm --project-dir /your/project
+  ```
 
 ## Humanizer 独立使用
 ```bash
 python scripts/assemble_prompt.py --project-dir /your/workdir --step humanizer --chapter-file /your/workdir/chapter_1.md
+python scripts/landing.py humanizer --project-dir /your/workdir --chapter-file /your/workdir/chapter_1.md --input-file /your/workdir/humanizer_output.md
 python scripts/validate_state.py --project-dir /your/workdir --for-step humanizer --chapter-file /your/workdir/chapter_1.md
 ```
 
@@ -52,4 +61,5 @@ python scripts/validate_state.py --project-dir /your/workdir --for-step humanize
 ```bash
 python scripts/validate_references.py
 python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1
+python scripts/regression_workflow_guards.py --project-dir /tmp/narrativespace-smoke
 ```

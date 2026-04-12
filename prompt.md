@@ -14,6 +14,7 @@
   1. 每章最小中文字符数（reply_length）
   2. 目标平台（target_platform）
 - 若 `state.json` 中这两个字段缺失，不得直接开始规划或写作
+- 若 `workflow.pending_user_confirmation=true`，不得直接进入任何下一步骤，必须等待用户确认并执行 `python scripts/workflow_state.py confirm --project-dir <项目根目录>`
 
 ## 组装守门
 除 humanizer 外，进入任一步骤前都应先执行 `python scripts/assemble_prompt.py` 组装 Prompt。
@@ -29,6 +30,8 @@
 - humanizer：章节定稿前润色
 
 ## 写后验收
+- Step 10 模型输出必须先通过 `python scripts/landing.py writing --project-dir <项目根目录> --chapter <N> --input-file <模型输出文件>` 落盘
 - Step 10 正文落盘后，必须执行 `python scripts/validate_state.py --project-dir <项目根目录> --for-step 10 --chapter <N>`
 - `validate_state.py` 会调用 `scripts/chinese_char_count.py` 统计中文字符数
 - 若未达到 `reply_length`，禁止进入 summary / memory / state 推进
+- humanizer 输出必须通过 `python scripts/landing.py humanizer --project-dir <目录> --chapter-file <章节文件> --input-file <模型输出文件>` 落盘到 `.xushikj/humanized/`

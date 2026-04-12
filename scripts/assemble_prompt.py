@@ -12,6 +12,7 @@ from typing import Any
 
 from encoding_utils import read_json_utf8, read_text_utf8, reconfigure_stdio_utf8, write_text_utf8
 from kb_slicer import format_kb_slice, slice_kb
+from workflow_state import assert_step_allowed, ensure_workflow_state
 
 try:
     import yaml
@@ -274,6 +275,7 @@ def _status(project_root: Path, xushikj_dir: Path) -> str:
     if not initialized:
         return f'project={project_root}\ninitialized=false'
     state = _load_state(xushikj_dir)
+    workflow = ensure_workflow_state(state)["workflow"]
     scene_path = xushikj_dir / 'scenes' / f"chapter_{state.get('current_chapter', 1)}.md"
     chapter_path = xushikj_dir / 'chapters' / f"chapter_{state.get('current_chapter', 1)}.md"
     return '\n'.join([
@@ -285,6 +287,9 @@ def _status(project_root: Path, xushikj_dir: Path) -> str:
         f"writing_mode={state.get('writing_mode', 'pipeline')}",
         f"reply_length={state.get('reply_length', '')}",
         f"target_platform={state.get('target_platform', '')}",
+        f"pending_user_confirmation={str(bool(workflow.get('pending_user_confirmation'))).lower()}",
+        f"pending_step={workflow.get('pending_step', '')}",
+        f"next_step_suggestion={workflow.get('next_step_suggestion', '')}",
         f'scene_card_exists={scene_path.exists()}',
         f'chapter_exists={chapter_path.exists()}',
         f"style_notes_exists={(xushikj_dir / 'benchmark' / 'style_notes.md').exists()}",
@@ -333,7 +338,11 @@ def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Pa
         return _status(project_root, xushikj_dir)
     if step not in TEMPLATES:
         raise ValueError(f'Unsupported Lite step: {step}')
+    if step != 'humanizer':
+        assert_step_allowed(project_root, step)
     if step == 'humanizer':
+        if (xushikj_dir / 'state.json').exists():
+            assert_step_allowed(project_root, step)
         template = read_text_utf8(PROMPTS_DIR / TEMPLATES[step], '')
         humanizer_chapter_path, chapter_label = _resolve_humanizer_chapter(project_root, xushikj_dir, chapter, chapter_file)
         values = {
@@ -384,6 +393,7 @@ def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Pa
         'scene_intensity': scene_meta.get('scene_intensity', 'medium') or 'medium',
         'reply_length': str(state.get('reply_length') or '（待确认）'),
         'target_platform': str(state.get('target_platform') or '（待确认）'),
+        'platform_hard_limit': '3500' if str(state.get('target_platform', '')).strip().lower() == 'fanqie' else '（按项目规则）',
         'style_snippet': _load_style_snippet(xushikj_dir, scene_card),
         'chapter_text': _read_text(chapter_path),
     }

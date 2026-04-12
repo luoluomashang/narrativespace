@@ -7,4 +7,6 @@ writing_rules:
   - 写作前必须读取 summary_index.md 与 memory.md，优先延续最近 3 章和当前卷压力线
   - 写完后补一段本章摘要与状态变化，供后续续写使用
   - 本章正文必须满足 state.reply_length 对应的最小中文字符数
+  - 若 target_platform=fanqie，本章正文中文字符数不得超过 3500
   - 写后摘要区必须覆盖新增设定与未兑现钩子，便于回写 summary_index / memory
+  - 输出必须严格包含 `## 本章摘要` / `## 状态变化` / `## 新增设定` / `## 未兑现钩子`

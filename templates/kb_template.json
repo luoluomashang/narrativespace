@@ -49,5 +49,14 @@
       "planned_payoff": "",
       "status": "open"
     }
+  ],
+  "chapter_notes": [
+    {
+      "chapter": 1,
+      "summary": "",
+      "state_changes": [],
+      "new_settings": [],
+      "unresolved_hooks": []
+    }
   ]
 }

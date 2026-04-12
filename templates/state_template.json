@@ -21,6 +21,17 @@
     "summary_mode": "tiered",
     "memory_file": "memory.md"
   },
+  "workflow": {
+    "current_step_status": "idle",
+    "pending_user_confirmation": false,
+    "pending_step": "",
+    "next_step_suggestion": "",
+    "last_gate_message": "",
+    "last_validation_passed": false,
+    "last_validation_summary": "",
+    "landed_outputs": [],
+    "last_completed_step": ""
+  },
   "recent_outputs": {
     "style_notes": "benchmark/style_notes.md",
     "project_card": "outline/project_card.md",
@@ -28,6 +39,7 @@
     "knowledge_base": "knowledge_base.json",
     "latest_scene_card": "scenes/chapter_1.md",
     "latest_chapter": "chapters/chapter_1.md",
+    "latest_humanized": "humanized/chapter_1.md",
     "summary_index": "summaries/summary_index.md",
     "memory": "memory.md"
   }

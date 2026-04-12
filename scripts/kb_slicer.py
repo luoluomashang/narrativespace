@@ -55,6 +55,9 @@ def slice_kb(kb_path: Path, focus_names: list[str] | None = None) -> dict[str, A
     open_loops = kb.get("open_loops", [])
     if not isinstance(open_loops, list):
         open_loops = []
+    chapter_notes = kb.get("chapter_notes", [])
+    if not isinstance(chapter_notes, list):
+        chapter_notes = []
 
     return {
         "project": kb.get("project", {}),
@@ -63,6 +66,7 @@ def slice_kb(kb_path: Path, focus_names: list[str] | None = None) -> dict[str, A
         "world_rules": world_rules[:5],
         "current_volume": kb.get("current_volume", {}),
         "open_loops": open_loops[:8],
+        "chapter_notes": chapter_notes[-3:],
     }
 
 
