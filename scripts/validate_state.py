@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -58,8 +59,6 @@ def _resolve_humanizer_chapter_path(project_dir: Path, chapter: int | None, chap
 
 
 def _count_chinese_chars_with_script(chapter_path: Path) -> int:
-    import subprocess
-
     script_path = Path(__file__).resolve().parent / "chinese_char_count.py"
     proc = subprocess.run(
         [sys.executable, str(script_path), "--input", str(chapter_path), "--json"],
