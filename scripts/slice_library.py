@@ -54,6 +54,12 @@ SCENE_TYPES = [
     "mystery",
     "power_up",
     "chase",
+    "crowd_reaction",
+    "strategy",
+    "flashback",
+    "world_building",
+    "aftermath",
+    "humor",
 ]
 SCENE_TYPE_ALIASES = {
     "action": "combat",
@@ -62,10 +68,10 @@ SCENE_TYPE_ALIASES = {
 }
 SNIPPET_MIN_CHARS = 350
 SNIPPET_MAX_CHARS = 500
-# source_available=true 的类型至少要保留 1 个合格切片；未命中原文的类型可豁免。
-MIN_SNIPPETS_PER_ACTIVE_TYPE = 1
+# source_available=true 的类型至少要保留 3 个合格切片（不重复）；未命中原文的类型可豁免。
+MIN_SNIPPETS_PER_ACTIVE_TYPE = 3
 # 无论类型是否活跃，单类型都不能超过该数量上限。
-MAX_SNIPPETS_PER_TYPE = 5
+MAX_SNIPPETS_PER_TYPE = 8
 
 # 切片库全局根目录
 STYLE_LIBRARY_ROOT = Path.home() / ".narrativespace" / "style_library"

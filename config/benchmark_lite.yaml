@@ -12,5 +12,5 @@ benchmark_lite:
     - 不做重型 DNA 提取
     - 不做 clone prompt
     - 可选调用 scripts/slice_library.py 将原文切片落到本地 style_snippets
-    - source_available 的 scene_type 必须至少保留 1 个合格切片；仅 source_missing 类型允许为空
+    - source_available 的 scene_type 必须至少保留 3 个不重复的合格切片；仅 source_missing 类型允许为空
     - style_snippet 必须通过 chinese_char_count 中文字数校验（350-500）与原文精确摘录校验
