@@ -61,6 +61,7 @@ EXPECTED_ROLE_HEADINGS = {
     "step_10_writing.md": "## 模块身份",
     "step_humanizer.md": "## 模块身份",
 }
+LEGACY_MODULE_PATTERNS = ('"modules/benchmark":', '"modules/interactive":')
 
 
 def _extract_version(text: str) -> str | None:
@@ -174,7 +175,7 @@ def validate_all() -> bool:
         issues.append("workflow_state.py 缺少确认门禁逻辑")
 
     metadata_sync_text = read_text_utf8(scripts_root / "update_skill_metadata.py", "")
-    if '"modules/benchmark":' in metadata_sync_text or '"modules/interactive":' in metadata_sync_text:
+    if any(pattern in metadata_sync_text for pattern in LEGACY_MODULE_PATTERNS):
         issues.append("update_skill_metadata.py 仍残留旧模块命名")
 
     print("=" * 60)

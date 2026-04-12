@@ -62,7 +62,9 @@ SCENE_TYPE_ALIASES = {
 }
 SNIPPET_MIN_CHARS = 350
 SNIPPET_MAX_CHARS = 500
+# source_available=true 的类型至少要保留 1 个合格切片；未命中原文的类型可豁免。
 MIN_SNIPPETS_PER_ACTIVE_TYPE = 1
+# 无论类型是否活跃，单类型都不能超过该数量上限。
 MAX_SNIPPETS_PER_TYPE = 5
 
 # 切片库全局根目录

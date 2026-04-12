@@ -13,7 +13,6 @@ from typing import Any
 
 from encoding_utils import read_json_utf8, reconfigure_stdio_utf8, write_text_utf8
 
-STEP_SEQUENCE = ["project_card", "4", "7", "8", "10", "humanizer"]
 DEFAULT_NEXT_STEP = {
     "project_card": "4",
     "4": "7",

@@ -15,6 +15,9 @@ from chinese_char_count import FANQIE_MAX_CHARS, validate_chinese_char_count
 from encoding_utils import read_json_utf8, reconfigure_stdio_utf8, subprocess_utf8_kwargs
 from workflow_state import ensure_workflow_state
 
+# "chapter_file" is a synthetic dependency used only for humanizer:
+# it represents the resolved target chapter path, including standalone files
+# outside `.xushikj/`, rather than a fixed runtime file inside the project tree.
 STEP_DEPENDENCIES = {
     "project_card": ["reply_length", "target_platform"],
     "7": ["project_card", "reply_length", "target_platform"],
