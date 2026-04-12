@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from chinese_char_count import FANQIE_MAX_CHARS
 from encoding_utils import read_json_utf8, read_text_utf8, reconfigure_stdio_utf8, write_text_utf8
 from kb_slicer import format_kb_slice, slice_kb
 from workflow_state import assert_step_allowed, ensure_workflow_state
@@ -393,7 +394,7 @@ def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Pa
         'scene_intensity': scene_meta.get('scene_intensity', 'medium') or 'medium',
         'reply_length': str(state.get('reply_length') or '（待确认）'),
         'target_platform': str(state.get('target_platform') or '（待确认）'),
-        'platform_hard_limit': '3500' if str(state.get('target_platform', '')).strip().lower() == 'fanqie' else '（按项目规则）',
+        'platform_hard_limit': str(FANQIE_MAX_CHARS) if str(state.get('target_platform', '')).strip().lower() == 'fanqie' else '（按项目规则）',
         'style_snippet': _load_style_snippet(xushikj_dir, scene_card),
         'chapter_text': _read_text(chapter_path),
     }

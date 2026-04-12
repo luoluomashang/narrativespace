@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from chinese_char_count import validate_chinese_char_count
+from chinese_char_count import FANQIE_MAX_CHARS, validate_chinese_char_count
 from encoding_utils import read_json_utf8, reconfigure_stdio_utf8, subprocess_utf8_kwargs
 from workflow_state import ensure_workflow_state
 
@@ -160,7 +160,7 @@ def validate(
             _, count_errors = validate_chinese_char_count(
                 chapter_path.read_text(encoding="utf-8-sig", errors="replace"),
                 minimum=threshold,
-                maximum=3500 if str(state.get("target_platform", "")).strip().lower() == "fanqie" else None,
+                maximum=FANQIE_MAX_CHARS if str(state.get("target_platform", "")).strip().lower() == "fanqie" else None,
                 label=f"chapter_{effective_chapter}",
             )
             errors.extend(count_errors)

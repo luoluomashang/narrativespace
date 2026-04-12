@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from chinese_char_count import validate_chinese_char_count
+from chinese_char_count import FANQIE_MAX_CHARS, validate_chinese_char_count
 from encoding_utils import read_json_utf8, read_text_utf8, reconfigure_stdio_utf8, write_text_utf8
 from workflow_state import mark_step_complete, resolve_paths
 
@@ -213,7 +213,7 @@ def _update_kb(
 
 
 def _fanqie_max(target_platform: str) -> int | None:
-    return 3500 if target_platform.strip().lower() == "fanqie" else None
+    return FANQIE_MAX_CHARS if target_platform.strip().lower() == "fanqie" else None
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:

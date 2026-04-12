@@ -18,6 +18,7 @@ from encoding_utils import reconfigure_stdio_utf8
 
 # Basic CJK Unified Ideographs range.
 ZH_CHAR_RE = re.compile(r"[\u4e00-\u9fff]")
+FANQIE_MAX_CHARS = 3500
 
 
 def count_chinese_chars(text: str) -> int:

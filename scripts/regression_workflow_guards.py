@@ -146,6 +146,11 @@ def main() -> int:
             forbid_replacement_char=True,
         )
         expect_success(
+            [sys.executable, str(workflow_script), 'status', '--project-dir', str(project_dir)],
+            contains=['current_step=8', 'pending_user_confirmation=false'],
+            forbid_replacement_char=True,
+        )
+        expect_success(
             [sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', '8', '--chapter', str(args.chapter)],
             contains=['章节导演'],
             forbid_replacement_char=True,

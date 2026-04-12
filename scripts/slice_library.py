@@ -390,7 +390,7 @@ def cmd_write_snippet(project_dir: str, scene_type: str, content_file: str) -> i
     current_manifest = _load_yaml_or_default(manifest_path, {"snippets": {}})
     current_payload = current_manifest.get("snippets", {}).get(normalized_scene_type, {})
     current_files = current_payload.get("files", []) if isinstance(current_payload, dict) else []
-    if isinstance(current_files, list) and len(current_files) >= MAX_SNIPPETS_PER_TYPE:
+    if len(current_files) >= MAX_SNIPPETS_PER_TYPE:
         reason = f"{normalized_scene_type} 已达到上限：{len(current_files)} >= {MAX_SNIPPETS_PER_TYPE}"
         _record_snippet_rejection(manifest_path, normalized_scene_type, reason, coverage)
         print(f"[ERROR] {reason}", file=sys.stderr)
