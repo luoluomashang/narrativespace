@@ -99,7 +99,7 @@ def _extract_kb_hints_from_scene_plan(scene_plan_path: Path) -> list[dict]:
             if not line:
                 continue
             # 格式示例: "**角色名**：当前阶段 → 本场景后阶段"
-            m = re.match(r"\*?\*?(.+?)\*?\*?[：:]\s*(.+?)\s*[→->]+\s*(.+)", line)
+            m = re.match(r"\*?\*?(.+?)\*?\*?[：:]\s*(.+?)\s*(?:→|->)+\s*(.+)", line)
             if m:
                 hints.append({
                     "type": "arc_transition",

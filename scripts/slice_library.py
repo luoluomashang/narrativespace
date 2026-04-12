@@ -25,6 +25,8 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
+from chinese_char_count import validate_chinese_char_count
+
 try:
     import yaml
     YAML_AVAILABLE = True
@@ -39,10 +41,37 @@ def _reconfigure_stdout_utf8() -> None:
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 # 场景类型列表（与 analyze_dna.py 保持一致）
-SCENE_TYPES = ["combat", "face_slap", "negotiation", "emotional", "reveal", "daily", "system"]
+SCENE_TYPES = [
+    "combat",
+    "face_slap",
+    "negotiation",
+    "emotional",
+    "reveal",
+    "daily",
+    "system",
+    "training",
+    "romance",
+    "mystery",
+    "power_up",
+    "chase",
+    "crowd_reaction",
+    "strategy",
+    "flashback",
+    "world_building",
+    "aftermath",
+    "humor",
+]
 SCENE_TYPE_ALIASES = {
     "action": "combat",
+    "investigation": "mystery",
+    "growth": "power_up",
 }
+SNIPPET_MIN_CHARS = 350
+SNIPPET_MAX_CHARS = 500
+# source_available=true 的类型至少要保留 3 个合格切片（不重复）；未命中原文的类型可豁免。
+MIN_SNIPPETS_PER_ACTIVE_TYPE = 3
+# 无论类型是否活跃，单类型都不能超过该数量上限。
+MAX_SNIPPETS_PER_TYPE = 8
 
 # 切片库全局根目录
 STYLE_LIBRARY_ROOT = Path.home() / ".narrativespace" / "style_library"
@@ -167,6 +196,42 @@ def _normalize_scene_type(scene_type: str) -> str:
     return SCENE_TYPE_ALIASES.get(scene_type.strip().lower(), scene_type.strip().lower())
 
 
+def _normalize_snippet_body(text: str) -> str:
+    return _strip_yaml_frontmatter(text).replace("\r\n", "\n").strip()
+
+
+def _snippet_body_digest(text: str) -> str | None:
+    normalized = _normalize_snippet_body(text)
+    if not normalized:
+        return None
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _collect_unique_scene_files(snippet_dir: Path, files: list[str]) -> tuple[list[str], list[str], set[str]]:
+    unique_files: list[str] = []
+    duplicate_files: list[str] = []
+    digests: set[str] = set()
+
+    for item in files:
+        candidate = snippet_dir / str(item)
+        if not candidate.exists():
+            continue
+        try:
+            snippet_text = candidate.read_text(encoding="utf-8-sig")
+        except Exception:
+            continue
+        digest = _snippet_body_digest(snippet_text)
+        if digest is None:
+            continue
+        if digest in digests:
+            duplicate_files.append(str(item))
+            continue
+        digests.add(digest)
+        unique_files.append(str(item))
+
+    return unique_files, duplicate_files, digests
+
+
 def _append_scene_file_to_manifest(manifest_path: Path, scene_type: str, filename: str) -> None:
     manifest = _load_yaml_or_default(manifest_path, {"snippets": {}})
     snippets = manifest.setdefault("snippets", {})
@@ -187,6 +252,126 @@ def _append_scene_file_to_manifest(manifest_path: Path, scene_type: str, filenam
     payload["files"] = files
     payload["count"] = len(files)
     _dump_yaml_or_json(manifest_path, manifest)
+
+
+def _coverage_path(xushikj_dir: Path) -> Path:
+    return xushikj_dir / "benchmark" / "scene_type_coverage.json"
+
+
+def _build_scene_type_coverage(chapter_type_map: dict) -> dict[str, dict[str, object]]:
+    coverage: dict[str, dict[str, object]] = {
+        scene_type: {"source_available": False, "chapter_hits": 0, "max_score": 0.0}
+        for scene_type in SCENE_TYPES
+    }
+    chapters = chapter_type_map.get("chapters", [])
+    if not isinstance(chapters, list):
+        return coverage
+
+    for chapter in chapters:
+        if not isinstance(chapter, dict):
+            continue
+        type_scores = chapter.get("type_scores", {})
+        if not isinstance(type_scores, dict):
+            continue
+        for raw_scene_type, raw_score in type_scores.items():
+            scene_type = _normalize_scene_type(str(raw_scene_type))
+            if scene_type not in coverage:
+                continue
+            try:
+                score = float(raw_score)
+            except (TypeError, ValueError):
+                score = 0.0
+            if score > 0:
+                coverage[scene_type]["source_available"] = True
+                coverage[scene_type]["chapter_hits"] = int(coverage[scene_type]["chapter_hits"]) + 1
+                coverage[scene_type]["max_score"] = max(float(coverage[scene_type]["max_score"]), score)
+    return coverage
+
+
+def _load_scene_type_coverage(xushikj_dir: Path) -> dict[str, dict[str, object]]:
+    coverage_path = _coverage_path(xushikj_dir)
+    if not coverage_path.exists():
+        return _build_scene_type_coverage({})
+    try:
+        payload = json.loads(coverage_path.read_text(encoding="utf-8"))
+    except Exception:
+        return _build_scene_type_coverage({})
+    if not isinstance(payload, dict):
+        return _build_scene_type_coverage({})
+    coverage = payload.get("scene_types", payload)
+    return coverage if isinstance(coverage, dict) else _build_scene_type_coverage({})
+
+
+def _sync_manifest_with_coverage(manifest_path: Path, coverage: dict[str, dict[str, object]]) -> None:
+    manifest = _load_yaml_or_default(
+        manifest_path,
+        {
+            "snippets": {},
+            "snippet_limits": {
+                "min_chars": SNIPPET_MIN_CHARS,
+                "max_chars": SNIPPET_MAX_CHARS,
+                "min_per_active_type": MIN_SNIPPETS_PER_ACTIVE_TYPE,
+                "max_per_type": MAX_SNIPPETS_PER_TYPE,
+                "require_unique": True,
+            },
+        },
+    )
+    snippet_dir = manifest_path.parent
+    snippets = manifest.setdefault("snippets", {})
+    missing_types: list[str] = []
+    exempt_types: list[str] = []
+
+    for scene_type in SCENE_TYPES:
+        payload = snippets.setdefault(scene_type, {})
+        if not isinstance(payload, dict):
+            payload = {}
+            snippets[scene_type] = payload
+        files = payload.get("files", [])
+        if not isinstance(files, list):
+            files = []
+        payload["files"] = [str(item) for item in files]
+        payload["count"] = len(payload["files"])
+        unique_files, duplicate_files, _ = _collect_unique_scene_files(snippet_dir, payload["files"])
+        payload["unique_files"] = unique_files
+        payload["unique_count"] = len(unique_files)
+        payload["duplicate_files"] = duplicate_files
+        scene_coverage = coverage.get(scene_type, {}) if isinstance(coverage, dict) else {}
+        source_available = bool(scene_coverage.get("source_available"))
+        payload["source_available"] = source_available
+        payload["chapter_hits"] = int(scene_coverage.get("chapter_hits", 0) or 0)
+        payload["min_required"] = MIN_SNIPPETS_PER_ACTIVE_TYPE if source_available else 0
+        payload["max_allowed"] = MAX_SNIPPETS_PER_TYPE
+        if not source_available:
+            payload["status"] = "source_missing"
+            payload["missing_reason"] = "source_missing"
+            exempt_types.append(scene_type)
+        elif payload["unique_count"] >= MIN_SNIPPETS_PER_ACTIVE_TYPE:
+            payload["status"] = "ready"
+            payload["missing_reason"] = ""
+        else:
+            payload["status"] = "missing"
+            payload["missing_reason"] = (
+                str(payload.get("last_rejection_reason", "")).strip()
+                or ("duplicate_snippets_present" if duplicate_files else "awaiting_valid_snippet")
+            )
+            missing_types.append(scene_type)
+
+    manifest["missing_types"] = missing_types
+    manifest["exempt_types"] = exempt_types
+    manifest["completeness"] = "full" if not missing_types else "partial"
+    _dump_yaml_or_json(manifest_path, manifest)
+
+
+def _record_snippet_rejection(manifest_path: Path, scene_type: str, reason: str, coverage: dict[str, dict[str, object]]) -> None:
+    manifest = _load_yaml_or_default(manifest_path, {"snippets": {}})
+    snippets = manifest.setdefault("snippets", {})
+    payload = snippets.setdefault(scene_type, {})
+    if not isinstance(payload, dict):
+        payload = {}
+        snippets[scene_type] = payload
+    payload["last_rejection_reason"] = reason
+    _dump_yaml_or_json(manifest_path, manifest)
+    _sync_manifest_with_coverage(manifest_path, coverage)
 
 
 def _resolve_global_library_target(xushikj_dir: Path) -> tuple[Path, str] | None:
@@ -226,22 +411,55 @@ def cmd_write_snippet(project_dir: str, scene_type: str, content_file: str) -> i
     xushikj_dir = _resolve_xushikj_dir(project_dir)
     snippet_dir = xushikj_dir / "benchmark" / "style_snippets"
     snippet_dir.mkdir(parents=True, exist_ok=True)
+    coverage = _load_scene_type_coverage(xushikj_dir)
+    manifest_path = snippet_dir / "manifest.yaml"
+    _sync_manifest_with_coverage(manifest_path, coverage)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{normalized_scene_type}_{timestamp}.md"
     snippet_path = snippet_dir / filename
     snippet_text = content_path.read_text(encoding="utf-8-sig")
+    snippet_body = _normalize_snippet_body(snippet_text)
+
+    _, count_errors = validate_chinese_char_count(
+        snippet_body,
+        minimum=SNIPPET_MIN_CHARS,
+        maximum=SNIPPET_MAX_CHARS,
+        label=f"style_snippet[{normalized_scene_type}]",
+    )
+    if count_errors:
+        reason = "; ".join(count_errors)
+        _record_snippet_rejection(manifest_path, normalized_scene_type, reason, coverage)
+        print(f"[ERROR] 切片字数校验失败：{reason}", file=sys.stderr)
+        return 1
 
     ok, reason = _validate_snippet_is_source_excerpt(xushikj_dir, snippet_text)
     if not ok:
+        _record_snippet_rejection(manifest_path, normalized_scene_type, reason, coverage)
         print(f"[ERROR] 切片原文校验失败：{reason}", file=sys.stderr)
         return 1
     print(f"[slice_library] {reason}")
 
-    snippet_path.write_text(snippet_text, encoding="utf-8")
+    current_manifest = _load_yaml_or_default(manifest_path, {"snippets": {}})
+    current_payload = current_manifest.get("snippets", {}).get(normalized_scene_type, {})
+    current_files = current_payload.get("files", []) if isinstance(current_payload, dict) else []
+    current_unique_files, _, current_digests = _collect_unique_scene_files(snippet_dir, current_files)
+    new_digest = _snippet_body_digest(snippet_text)
+    if new_digest is not None and new_digest in current_digests:
+        reason = f"{normalized_scene_type} 切片重复：内容与现有切片完全一致，不计入合格数量"
+        _record_snippet_rejection(manifest_path, normalized_scene_type, reason, coverage)
+        print(f"[ERROR] {reason}", file=sys.stderr)
+        return 1
 
-    manifest_path = snippet_dir / "manifest.yaml"
+    if len(current_unique_files) >= MAX_SNIPPETS_PER_TYPE:
+        reason = f"{normalized_scene_type} 已达到上限：{len(current_unique_files)} >= {MAX_SNIPPETS_PER_TYPE}"
+        _record_snippet_rejection(manifest_path, normalized_scene_type, reason, coverage)
+        print(f"[ERROR] {reason}", file=sys.stderr)
+        return 1
+
+    snippet_path.write_text(snippet_text, encoding="utf-8")
     _append_scene_file_to_manifest(manifest_path, normalized_scene_type, filename)
+    _sync_manifest_with_coverage(manifest_path, coverage)
     print(f"[slice_library] 已写入切片：{snippet_path}")
     print(f"[slice_library] 已更新 manifest：{manifest_path}")
 
@@ -254,6 +472,7 @@ def cmd_write_snippet(project_dir: str, scene_type: str, content_file: str) -> i
 
         global_manifest_path = author_dir / "manifest.yaml"
         _append_scene_file_to_manifest(global_manifest_path, normalized_scene_type, filename)
+        _sync_manifest_with_coverage(global_manifest_path, coverage)
 
         print(f"[slice_library] 已同步全局切片库（author={author_slug}）：{global_snippet_path}")
         print(f"[slice_library] 已更新全局 manifest：{global_manifest_path}")
@@ -475,17 +694,20 @@ def print_step1_instructions(chapter_type_map: dict, input_path: str):
     print()
     print("Step 1（LLM层）：候选段落提取")
     print("  对 chapter_type_map.json 按 scene_type 分组，对每种类型：")
+    print("  - 先读取 benchmark/scene_type_coverage.json，仅对 source_available=true 的类型提候选")
+    print("  - 若 coverage 尚未生成，先完成全书扫描；不得只凭开头样本猜 scene_type")
     print("  - 按 type_scores 取该类型得分最高的20个章节")
-    print("  - 从每个章节中提取350-500字的候选段落（必须是原文逐字摘录，禁止改写）")
-    print("  - 每种 scene_type 提取 ≥15个候选")
+    print(f"  - 从每个章节中提取 {SNIPPET_MIN_CHARS}-{SNIPPET_MAX_CHARS} 中文字候选段落（必须是原文逐字摘录，禁止改写）")
+    print("  - source_available=true 的 scene_type 都必须给出候选；仅 source_missing 类型允许留空")
     print()
     print("Step 2（LLM层）：候选排序与最终筛选")
     print("  对每种类型的候选按语感辨识度(40%)/场景类型纯度(30%)/强度标注(20%)/章节分散性(10%)评分")
-    print("  每种类型最终选出5个切片")
-    print("  强度分布硬约束：≥2个high, ≥2个medium, ≥1个low")
+    print(f"  每种 source_available 类型最终保留 {MIN_SNIPPETS_PER_ACTIVE_TYPE}-{MAX_SNIPPETS_PER_TYPE} 个不重复切片")
+    print("  强度分布尽量覆盖 high / medium / low，但优先保证 active 类型全覆盖与切片不重复")
+    print("  不得编造不存在的命令参数、行号、片段位置或未核验的字符数")
     print()
     print("完成 Step 1-2 后，调用 write-snippet / write-dna 子命令落盘。")
-    print("write-snippet 现已强制校验：切片必须在登记原文中精确命中，否则拒绝写入。")
+    print("write-snippet 现已强制校验：切片必须在登记原文中精确命中，且中文字数必须在范围内，否则拒绝写入。")
     print("\n最小落盘命令示例：")
     print("  python scripts/slice_library.py write-snippet --project-dir . --scene-type daily --content-file snippet_daily.md")
     print("  python scripts/slice_library.py write-dna --project-dir . --project-name my_project --dna-json dna_profile.json")
@@ -536,8 +758,30 @@ def main() -> int:
     # Step 0: 量化扫描 + 章节类型标注
     chapter_map_path = run_step0(str(input_path), args.title, args.project_dir)
     chapter_type_map = load_chapter_type_map(chapter_map_path)
+    coverage = _build_scene_type_coverage(chapter_type_map)
+    xushikj_dir = _resolve_xushikj_dir(args.project_dir)
+    coverage_path = _coverage_path(xushikj_dir)
+    coverage_path.parent.mkdir(parents=True, exist_ok=True)
+    coverage_path.write_text(
+        json.dumps(
+            {
+                "scene_types": coverage,
+                "snippet_limits": {
+                    "min_chars": SNIPPET_MIN_CHARS,
+                    "max_chars": SNIPPET_MAX_CHARS,
+                    "min_per_active_type": MIN_SNIPPETS_PER_ACTIVE_TYPE,
+                    "max_per_type": MAX_SNIPPETS_PER_TYPE,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    _sync_manifest_with_coverage(xushikj_dir / "benchmark" / "style_snippets" / "manifest.yaml", coverage)
 
     print(f"[slice_library] 章节类型标注完成：{chapter_type_map['total_chapters']} 章", file=sys.stderr)
+    print(f"[slice_library] 已生成场景覆盖基线：{coverage_path}", file=sys.stderr)
 
     # Step 1-2 需要 LLM 执行
     print_step1_instructions(chapter_type_map, str(input_path))

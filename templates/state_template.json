@@ -1,258 +1,39 @@
 {
-  "version": "10.0.0",
+  "version": "11.0.0",
   "project_name": "",
-  "created_at": "",
-  "updated_at": "",
-  "current_step": "project_card",
-  "planning_state": {
-    "current_step": 1,
-    "current_volume": 1,
-    "ending_locked": false
-  },
-  "planning_granularity": {
-    "_note": "三层规划粒度：长程司南(方向感/开局锁定) + 卷级大纲(提前2卷规划) + 章节工作区(前5章随时调整)",
-    "north_star": "",
-    "north_star_locked_at": 0,
-    "volume_plan_horizon": 2,
-    "chapter_workspace_size": 5
-  },
-  "planning_guard": {
-    "current_step_requirements_complete": false,
-    "current_step_confirmed": false,
-    "last_confirmed_step": 0,
-    "plan_package_confirmed": false,
-    "confirmation_mode": "explicit"
-  },
-  "rolling_context": {
-    "cycle_id": "cycle_1",
-    "cycle_size": 3,
-    "cycle_status": "plan_light",
-    "granularity": "3-5",
-    "pending_granularity": null,
-    "next_cycle_hint": "",
-    "chapters_completed_in_cycle": 0
-  },
-  "completed_steps": [],
-  "config": {
-    "novel_type_tags": [],
-    "benchmark_works": [],
-    "creation_mode": "mode_3",
-    "execution_mode": "strict",
-    "workflow_mode": "guided",
-    "reply_length": 2000,
-    "interaction_options": "F",
-    "recap_and_guide": "N",
-    "periodic_summary": "O",
-    "rule_self_check": "Y",
-    "age_rule": "",
-    "enabled_excluded_elements": [],
-    "sensitivity_default": "GREEN",
-    "writing_mode": "pipeline",
-    "target_platform": "",
-    "pov_mode": "limited_third"
-  },
-  "world_setting": {
-    "era_background": "",
-    "protagonist_dilemma": "",
-    "core_info_gap": "",
-    "protagonist": {
-      "name": "",
-      "identity": "",
-      "personality": "",
-      "appearance": "",
-      "physiology_abilities": "",
-      "relationship_to_user": ""
-    },
-    "user_identity": "",
-    "perception_layer": ""
-  },
-  "special_rules": {
-    "tracked_states": [],
-    "custom_rules": []
-  },
-  "chapter_state": {
-    "current_chapter": 0,
-    "chapter_objectives": [],
-    "objective_status": {},
-    "pending_foreshadowing": [],
-    "shuang_tracker": {
-      "consecutive_no_shuang": 0,
-      "last_shuang_chapter": null,
-      "shuang_type_log": []
-    }
-  },
-  "memory": {
-    "last_updated": "",
-    "file": "memory.md"
-  },
-  "summary_state": {
-    "total_groups_completed": 0,
-    "last_summarized_chapter": 0,
-    "summary_word_limit": 250,
-    "pending_resummary": [],
-    "progress_file": "summaries/_progress.json"
-  },
+  "current_step": "benchmark-lite",
+  "current_chapter": 1,
+  "writing_mode": "style-clone",
+  "reply_length": null,
+  "target_platform": "",
+  "last_updated": "",
+  "active_style_profile": "",
+  "last_completed_steps": [],
   "benchmark_state": {
-    "sample_scope": null,
-    "primary_group": null,
-    "support_group": null,
-    "down_weighting": [],
-    "target_chapters": [],
-    "selected_chapters": [],
-    "windows_collected": 0,
-    "chapter_style_cards": [],
-    "dna_extraction": {
-      "enabled": false,
-      "reference_works": [],
-      "dna_profile_path": null,
-      "dna_modules_generated": [],
-      "extraction_completed_at": null
-    },
-    "linked_author": null,
-    "style_library_path": "~/.narrativespace/style_library"
+    "required": true,
+    "sample_scope": "standard",
+    "style_notes_path": "benchmark/style_notes.md",
+    "source_registry_path": "benchmark/source_registry.json"
   },
-  "style_module_state": {
-    "active_modules": [],
-    "support_modules": [],
-    "selection_basis": "",
-    "updated_at": ""
+  "workflow": {
+    "current_step_status": "idle",
+    "pending_user_confirmation": false,
+    "pending_step": "",
+    "next_step_suggestion": "",
+    "last_gate_message": "",
+    "last_validation_passed": false,
+    "last_validation_summary": "",
+    "landed_outputs": [],
+    "last_completed_step": ""
   },
-  "interactive_state": {
-    "_note": "v8.0 互动模式状态追踪",
-    "decision_density": "normal",
-    "emotional_temperature": null,
-    "turns_since_last_anchor": 0,
-    "interrupt_active": false,
-    "last_anchor_chapter": null,
-    "branch_registry": {},
-    "confirmed_chapter": null
-  },
-  "line_heat": {
-    "characters": [],
-    "subplots": [],
-    "foreshadows": [],
-    "algorithm_tags": {
-      "daily_update": [],
-      "burst_point": [],
-      "reader_suspense": [],
-      "deep_pit": []
-    },
-    "last_updated_chapter": 0
-  },
-  "narrative_tension": {
-    "current_tension": 0,
-    "current_expectation": 0,
-    "last_payoff_chapter": null,
-    "last_milestone_chapter": 0,
-    "convergence_last_checked_chapter": 0,
-    "convergence_drift_flag": false,
-    "_notes": {
-      "current_tension": "仇恨值/压抑值 0-10，铺垫反派压力时累加，爽点释放后归零",
-      "current_expectation": "期待值/爽点值 0-10，埋下悬念和钩子时累加，每次兑现后部分消耗",
-      "convergence_drift_flag": "当连续3+章摘要与 one_sentence.md 核心卖点偏离时置 true，由 orchestrator 在下一 cycle 强制插入卖点回归事件"
-    }
-  },
-  "knowledge_base_version": 0,
-  "dialogue_count_since_summary": 0,
-  "required_context_files": {
-    "_note": "Layer-1 上下文清单：各步骤必须加载的文件，供 orchestrator 和 init.py --upgrade 使用",
-    "always": [
-      "config/methodology.yaml",
-      "config/writing_rules.yaml",
-      "config/style_rules.yaml",
-      "config/quality_dimensions.yaml"
-    ],
-    "step_0": [
-      "config/benchmark_triggers.yaml"
-    ],
-    "step_1_6": [
-      "config/workflow.yaml",
-      "config/layer_definitions.yaml"
-    ],
-    "step_10A_pipeline": [
-      "config/writing_rules.yaml",
-      "config/style_rules.yaml",
-      "config/quality_dimensions.yaml",
-      "config/meta_rules.yaml",
-      "config/golden_opening.yaml",
-      "config/human_touch_rules.yaml",
-      "config/emotional_temperature.yaml",
-      "references/chapter-architecture-rules.md",
-      "references/dialogue-writing-rules.md"
-    ],
-    "step_10B_interactive": [
-      "config/writing_rules.yaml",
-      "config/style_rules.yaml",
-      "config/quality_dimensions.yaml",
-      "config/bangui_modes.yaml",
-      "config/trpg_immersion.yaml",
-      "config/human_touch_rules.yaml",
-      "config/emotional_temperature.yaml",
-      "references/chapter-architecture-rules.md",
-      "references/dialogue-writing-rules.md"
-    ]
-  },
-  "files": {
-    "benchmark_report": null,
-    "project_card": null,
-    "one_sentence": null,
-    "one_paragraph": null,
-    "characters": null,
-    "one_page": null,
-    "character_arcs": null,
-    "four_pages": null,
-    "knowledge_base": null,
-    "scene_list": null,
-    "scene_plans": [],
-    "chapters": [],
-    "title_and_synopsis": null,
-    "quality_reports": [],
-    "anchors": [],
-    "quarantine": [],
-    "timelines": []
-  },
-  "chapter_meta": {
-    "_note": "v8.1 P2.9：per-chapter 结构化元数据，key 为章节号字符串，value 为锚点元数据快照",
-    "_schema": {
-      "hook_type": "crisis|reward_pre|reversal|new_threat|system_call",
-      "hook_strength": "strong|medium|weak",
-      "opening_pattern": "in_medias_res|aftermath|tension_carry|time_skip",
-      "emotion_rhythm": "string（压迫→绝境→反转→爽感→新悬念）",
-      "ending_time": "string（故事内时间标记）",
-      "ending_emotion": "string（一词）"
-    }
-  },
-  "strand_tracker": {
-    "_note": "v8.1 P2.6：Strand Weave 三轨节奏追踪（Quest主线/Fire危机/Constellation世界观）",
-    "last_quest_chapter": null,
-    "last_fire_chapter": null,
-    "last_constellation_chapter": null,
-    "history": []
-  },
-  "override_contracts": [],
-  "rag_state": {
-    "_note": "v8.2 本地 RAG 向量检索状态（Ollama nomic-embed-text）",
-    "enabled": false,
-    "backend": null,
-    "index_version": 0,
-    "index_path": "rag/rag_index.json",
-    "retrieval_index_path": "rag/retrieval_index.md",
-    "total_indexed": 0,
-    "last_indexed_chapter": 0,
-    "fallback_level": "none"
-  },
-  "volume_timeline": {
-    "_note": "v8.2 卷级时间线里程碑追踪",
-    "active_volume_file": null,
-    "files": [],
-    "last_updated_volume": null
-  },
-  "global_dna_state": {
-    "_note": "v8.5 全局作者DNA状态追踪",
-    "source_path": null,
-    "injected_at": null,
-    "rule_count": 0,
-    "checksum": null
-  },
-  "style_router_history": []
+  "recent_outputs": {
+    "style_notes": "benchmark/style_notes.md",
+    "worldview": "worldbuilding/worldview.md",
+    "characters_dir": "outline/characters",
+    "latest_chapter_outline": "chapter_outlines/chapter_1.md",
+    "latest_chapter": "chapters/chapter_1.md",
+    "latest_humanized": "humanized/chapter_1.md",
+    "summary_index": "summaries/summary_index.md",
+    "memory": "memory.md"
+  }
 }

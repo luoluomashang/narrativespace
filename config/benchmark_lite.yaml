@@ -1,0 +1,13 @@
+version: 11.0.0
+benchmark_lite:
+  goals:
+    - 尽量按原版 style_notes/style_report 契约输出完整的文风与结构分析
+    - 输出可直接注入 writing 的文风特征指南、禁用表达、小步续写约束
+    - 当用户提供原文样本时，优先服务语感对齐，不做 scene_type / style_snippet 切片
+  outputs:
+    - benchmark/style_notes.md
+  constraints:
+    - 必须覆盖前段 / 中段 / 后段多个样本，不得只读开头几行
+    - 不做场景切片落盘，不做风格切片索引，不要求 style_snippets/manifest
+    - 可保留原版的世界观、情节模式、角色原型、style_profile 等分析段落
+    - 若样本文本不足以支撑判断，必须明确写出不确定项，不得编造原作者习惯
