@@ -12,10 +12,12 @@ python scripts/init.py --project-dir /your/project --yes --reply-length 2500
 python scripts/assemble_prompt.py --project-dir /your/project --status
 ```
 
-## 3. 组装 benchmark-lite Prompt
+## 3. 组装 benchmark-lite Prompt 包
 ```bash
 python scripts/assemble_prompt.py --project-dir /your/project --step benchmark-lite --output file --output-file /your/project/.xushikj/drafts/benchmark_prompt.md
 ```
+
+> 默认输出是 Prompt 包。把其中 `## 已组装 Prompt` 整段交给外部模型执行，再按包内“结果回填”说明写回文件。
 
 ## 4. 组装世界观与力量体系讨论 Prompt
 ```bash
@@ -32,12 +34,18 @@ python scripts/assemble_prompt.py --project-dir /your/project --step characters 
 python scripts/assemble_prompt.py --project-dir /your/project --step chapter-outline --chapter 1 --output file --output-file /your/project/.xushikj/drafts/ch1_outline_prompt.md
 ```
 
-## 7. 组装正文 Prompt
+## 7. 组装正文 Prompt 包
 ```bash
 python scripts/assemble_prompt.py --project-dir /your/project --step 10 --chapter 1 --output file --output-file /your/project/.xushikj/drafts/ch1_writing_prompt.md
 ```
 
-## 8. 落盘正文并等待确认
+如需机器可读格式：
+
+```bash
+python scripts/assemble_prompt.py --project-dir /your/project --step 10 --chapter 1 --format json --output file --output-file /your/project/.xushikj/drafts/ch1_writing_prompt.json
+```
+
+## 8. 外部模型执行后，落盘正文并等待确认
 ```bash
 python scripts/landing.py writing --project-dir /your/project --chapter 1 --input-file /your/project/.xushikj/drafts/ch1_output.md
 python scripts/validate_state.py --project-dir /your/project --for-step 10 --chapter 1

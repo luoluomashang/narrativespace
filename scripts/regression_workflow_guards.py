@@ -130,13 +130,18 @@ def main() -> int:
     failures: list[str] = []
     try:
         for cmd, contains in [
-            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'benchmark-lite'], ['文风克隆分析师', '前段样本', '中段样本', '后段样本']),
-            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'worldbuilding'], ['设定讨论搭档', '世界观与力量体系设定']),
-            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'characters'], ['人物设定讨论搭档', '每张人物卡最小字段集']),
-            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'chapter-outline', '--chapter', str(args.chapter)], ['章节骨架讨论搭档', '相关人物卡片']),
-            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', '10', '--chapter', str(args.chapter)], ['文风克隆续写主笔', '相关人物卡片', '本章最低中文字符数：50']),
+            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'benchmark-lite'], ['# Prompt Package', 'benchmark-lite Prompt 包', '推荐投喂方式', '前段样本', '中段样本', '后段样本']),
+            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'worldbuilding'], ['# Prompt Package', 'worldbuilding Prompt 包', '世界观与力量体系设定']),
+            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'characters'], ['# Prompt Package', 'characters Prompt 包', '每张人物卡最小字段集']),
+            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', 'chapter-outline', '--chapter', str(args.chapter)], ['# Prompt Package', 'chapter-outline Prompt 包', '相关人物卡片']),
+            ([sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', '10', '--chapter', str(args.chapter)], ['# Prompt Package', 'writing Prompt 包', '相关人物卡片', '本章最低中文字符数：50']),
         ]:
             expect_success(cmd, contains=contains, forbid_replacement_char=True)
+        expect_success(
+            [sys.executable, str(assemble_script), '--project-dir', str(project_dir), '--step', '10', '--chapter', str(args.chapter), '--format', 'json'],
+            contains=['"mode": "prompt-only"', '"step": "writing"', '"expected_output_schema"'],
+            forbid_replacement_char=True,
+        )
 
         missing_character_project = Path(args.project_dir).resolve() / '缺人物卡'
         missing_character_project.mkdir(parents=True, exist_ok=True)
@@ -191,7 +196,7 @@ def main() -> int:
         )
         expect_success(
             [sys.executable, str(assemble_script), '--project-dir', str(standalone_dir), '--step', 'humanizer', '--chapter-file', str(standalone_chapter)],
-            contains=['小说文本后处理专家', '无用细节清除', 'DNA 保护约束'],
+            contains=['# Prompt Package', 'humanizer Prompt 包', '无用细节清除', 'DNA 保护约束'],
             forbid_replacement_char=True,
         )
         humanizer_output = standalone_dir / 'humanizer_output.md'
