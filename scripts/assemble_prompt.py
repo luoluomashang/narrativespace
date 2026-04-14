@@ -1,716 +1,469 @@
 """
-assemble_prompt.py
-
-Phase-1 orchestrator for step-based prompt assembly.
-
-Usage examples:
-  python scripts/assemble_prompt.py --project-dir .xushikj --step 1
-  python scripts/assemble_prompt.py --project-dir .xushikj --step 10 --chapter 5
-  python scripts/assemble_prompt.py --project-dir .xushikj --status
+Assemble Lite step prompts.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
-import random
-import re
-import sys
 from pathlib import Path
 from typing import Any
 
-from dna_to_constraints import load_dna_constraints
-from kb_slicer import format_kb_slice, slice_kb
-from rule_extractor import extract_core_rules, extract_forbidden_words, extract_rules
+from encoding_utils import read_json_utf8, read_text_utf8, reconfigure_stdio_utf8, write_text_utf8
+from workflow_state import assert_step_allowed, ensure_workflow_state
+
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROMPTS_DIR = SKILL_ROOT / 'templates' / 'prompts'
+CONFIG_DIR = SKILL_ROOT / 'config'
+EMPTY_PLACEHOLDER = '（暂无）'
+PLACEHOLDER = '（待填写）'
+RULE_FILES = {
+    '0': ['meta_rules.yaml', 'benchmark_lite.yaml'],
+    'benchmark-lite': ['meta_rules.yaml', 'benchmark_lite.yaml'],
+    'worldbuilding': ['meta_rules.yaml', 'workflow.yaml'],
+    'characters': ['meta_rules.yaml', 'workflow.yaml'],
+    'chapter-outline': ['meta_rules.yaml', 'workflow.yaml'],
+    '10': ['meta_rules.yaml', 'writing_rules.yaml', 'style_rules.yaml'],
+    'writing': ['meta_rules.yaml', 'writing_rules.yaml', 'style_rules.yaml'],
+    'humanizer': ['meta_rules.yaml', 'style_rules.yaml', 'humanizer_rules.yaml'],
+}
+TEMPLATES = {
+    '0': 'step_0_benchmark_lite.md',
+    'benchmark-lite': 'step_0_benchmark_lite.md',
+    'worldbuilding': 'step_worldbuilding.md',
+    'characters': 'step_characters.md',
+    'chapter-outline': 'step_chapter_outline.md',
+    '10': 'step_10_writing.md',
+    'writing': 'step_10_writing.md',
+    'humanizer': 'step_humanizer.md',
+}
 
 
 def _read_json(path: Path) -> dict[str, Any]:
+    return read_json_utf8(path)
+
+
+def _read_text(path: Path, default: str = EMPTY_PLACEHOLDER) -> str:
+    return read_text_utf8(path, default, strip=True) or default
+
+
+def _load_yaml_or_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, Any]:
+    fallback = default or {}
+    if not path.exists():
+        return fallback
+    raw = read_text_utf8(path, '', strip=True)
+    if not raw:
+        return fallback
     try:
-        with path.open("r", encoding="utf-8-sig") as f:
-            return json.load(f)
-    except json.JSONDecodeError as exc:
-        msg = (
-            f"Invalid JSON in {path} at line {exc.lineno}, col {exc.colno}. "
-            "Run a JSON validator or restore from a known-good backup."
-        )
-        raise ValueError(msg) from exc
-    except OSError as exc:
-        raise ValueError(f"Unable to read JSON file: {path} ({exc})") from exc
-
-
-def _write_json(path: Path, data: dict[str, Any]) -> None:
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        if YAML_AVAILABLE:
+            payload = yaml.safe_load(raw)
+        else:
+            payload = json.loads(raw)
+    except Exception:
+        return fallback
+    return payload if isinstance(payload, dict) else fallback
 
 
 def _resolve_paths(project_dir: Path) -> tuple[Path, Path]:
-    """Return (project_root, xushikj_dir)."""
-    if project_dir.name == ".xushikj":
+    project_dir = project_dir.resolve()
+    if project_dir.name == '.xushikj':
         return project_dir.parent, project_dir
-    xushikj_dir = project_dir / ".xushikj"
-    return project_dir, xushikj_dir
+    return project_dir, project_dir / '.xushikj'
 
 
-def _load_step_rule_map(scripts_dir: Path) -> dict[str, Any]:
-    mapping_path = scripts_dir / "step_rule_map.json"
-    if not mapping_path.exists():
-        raise FileNotFoundError(f"Missing mapping file: {mapping_path}")
-    return _read_json(mapping_path)
+def _load_state(xushikj_dir: Path) -> dict[str, Any]:
+    state_path = xushikj_dir / 'state.json'
+    if not state_path.exists():
+        raise FileNotFoundError(f'Missing state.json: {state_path}')
+    return ensure_workflow_state(_read_json(state_path))
 
 
-def _pick_step_key(step: str, writing_mode: str) -> str:
-    if step == "10":
-        return "10_interactive" if writing_mode == "interactive" else "10_pipeline"
-    return step
+def _load_rules(step: str) -> str:
+    sections: list[str] = []
+    for filename in RULE_FILES.get(step, ['meta_rules.yaml']):
+        path = CONFIG_DIR / filename
+        if path.exists():
+            body = read_text_utf8(path, '', strip=True)
+            sections.append(f'## {filename}\n{body}')
+    return '\n\n'.join(sections) if sections else '（无额外规则）'
 
 
-def _resolve_writing_mode(state: dict[str, Any], override: str | None) -> str:
-    if override:
-        return override
-    mode = str(state.get("config", {}).get("writing_mode", "pipeline"))
-    if mode not in {"pipeline", "interactive"}:
-        return "pipeline"
-    return mode
+def _extract_constraint_lines(data: Any, keys: list[str], limit: int) -> list[str]:
+    pool: list[dict[str, Any]] = []
+
+    def _flatten(node: Any) -> None:
+        if isinstance(node, dict):
+            pool.append(node)
+            for value in node.values():
+                _flatten(value)
+        elif isinstance(node, list):
+            for item in node:
+                _flatten(item)
+
+    _flatten(data)
+    lines: list[str] = []
+    for item in pool:
+        for key in keys:
+            value = item.get(key)
+            if isinstance(value, list):
+                for raw in value:
+                    text = str(raw).strip()
+                    if text and text not in lines:
+                        lines.append(text)
+            elif isinstance(value, str):
+                text = value.strip()
+                if text and text not in lines:
+                    lines.append(text)
+            if len(lines) >= limit:
+                return lines[:limit]
+    return lines[:limit]
 
 
-def _read_recent_summaries(xushikj_dir: Path, last_n: int = 2) -> str:
-    summaries_dir = xushikj_dir / "summaries"
-    if not summaries_dir.exists():
-        return "(no summaries found)"
+def _humanizer_dna_constraints(xushikj_dir: Path) -> str:
+    style_modules_dir = xushikj_dir / 'config' / 'style_modules'
+    if not style_modules_dir.exists():
+        return '（当前项目未提供 dna_human_*.yaml / clone_*.yaml，可跳过 R-DNA 保护）'
 
-    files = sorted(summaries_dir.glob("chapter_*_summary.md"))
-    if not files:
-        return "(no summaries found)"
+    dna_files = sorted(style_modules_dir.glob('dna_human_*.yaml'))
+    source_label = 'dna_human'
+    if not dna_files:
+        dna_files = sorted(style_modules_dir.glob('clone_*.yaml'))
+        source_label = 'clone'
+    if not dna_files:
+        return '（当前项目未提供 dna_human_*.yaml / clone_*.yaml，可跳过 R-DNA 保护）'
 
-    selected = files[-last_n:]
-    chunks: list[str] = []
-    for file in selected:
-        content = file.read_text(encoding="utf-8")
-        chunks.append(f"## {file.name}\n{content.strip()}")
-    return "\n\n".join(chunks)
-
-
-def _strip_yaml_front_matter(text: str) -> str:
-    """Remove YAML front matter (---...---) from slice content."""
-    if text.startswith("---"):
-        end = text.find("\n---", 3)
-        if end != -1:
-            return text[end + 4:].lstrip("\n")
-    return text
+    dna_path = dna_files[0]
+    dna_payload = _load_yaml_or_json(dna_path, {})
+    do_items = _extract_constraint_lines(dna_payload, ['do', 'do_list', 'dos', 'preferred', 'guidelines'], 8)
+    dont_items = _extract_constraint_lines(dna_payload, ['dont', 'dont_list', 'donts', 'forbidden', 'avoid'], 8)
+    lines = [f'- source={source_label}:{dna_path.name}']
+    lines.extend(f'- DO: {item}' for item in do_items)
+    lines.extend(f"- DON'T: {item}" for item in dont_items)
+    return '\n'.join(lines) if len(lines) > 1 else f'- source={source_label}:{dna_path.name}'
 
 
-def _load_style_snippet(
-    state: dict[str, Any],
-    scene_type: str,
-    scene_intensity: str = "medium",
-    xushikj_dir: Path | None = None,
-) -> str:
-    """Load a style slice from the user's style library.
-
-    Load order:
-    1) global library based on benchmark_state.linked_author + style_library_path
-    2) local fallback .xushikj/benchmark/style_snippets
-
-    Returns placeholder text (no error) when no matching slice is available.
-    """
-    not_available = "(style snippet not available)"
-
-    try:
-        import yaml  # type: ignore[import]
-    except ImportError:
-        print(
-            "[WARNING] PyYAML is not installed. style_snippet loading is disabled. "
-            "Install with: pip install pyyaml",
-            file=sys.stderr,
-        )
-        return not_available
-
-    benchmark_state = state.get("benchmark_state", {})
-    linked_author: str | None = benchmark_state.get("linked_author")
-    style_library_path = benchmark_state.get("style_library_path", "~/.narrativespace/style_library")
-    global_root = Path(os.path.expanduser(str(style_library_path))).resolve()
-
-    def _pick_and_read(base_dir: Path, candidates: list[str]) -> str:
-        if not candidates:
-            return ""
-        exact = [f for f in candidates if f"_{scene_intensity}" in f]
-        pool = exact if exact else candidates
-        selected = random.choice(pool)
-        selected_path = base_dir / selected
-        if not selected_path.exists():
-            return ""
-        try:
-            raw = selected_path.read_text(encoding="utf-8")
-            return _strip_yaml_front_matter(raw).strip()
-        except Exception:
-            return ""
-
-    # Primary: global style library (when linked_author exists).
-    if linked_author:
-        library_root = global_root / linked_author
-        manifest_path = library_root / "manifest.yaml"
-        if not library_root.exists():
-            print(
-                f"[WARNING] linked_author is set ({linked_author}) but style library directory does not exist: {library_root}",
-                file=sys.stderr,
-            )
-        scene_files: list[str] = []
-        if manifest_path.exists():
-            try:
-                with manifest_path.open("r", encoding="utf-8") as f:
-                    manifest = yaml.safe_load(f)
-            except Exception:
-                manifest = None
-
-            if isinstance(manifest, dict):
-                snippets_map: dict[str, Any] = manifest.get("snippets", {})
-                if isinstance(snippets_map, dict):
-                    scene_payload = snippets_map.get(scene_type, {})
-                    if not scene_payload and "daily" in snippets_map:
-                        scene_payload = snippets_map.get("daily", {})
-                    if isinstance(scene_payload, dict):
-                        files = scene_payload.get("files", [])
-                        if isinstance(files, list):
-                            scene_files = [str(item) for item in files if isinstance(item, str)]
-
-        text = _pick_and_read(library_root, scene_files)
-        if text:
-            return text
-
-    # Fallback to local project snippets when global style library is missing/incomplete.
-    if xushikj_dir is not None:
-        local_snippet_dir = xushikj_dir / "benchmark" / "style_snippets"
-        local_files = sorted(local_snippet_dir.glob(f"{scene_type}_*.md"))
-        if not local_files and scene_type != "daily":
-            local_files = sorted(local_snippet_dir.glob("daily_*.md"))
-        if local_files:
-            exact = [p for p in local_files if f"_{scene_intensity}" in p.name]
-            pool = exact if exact else local_files
-            chosen_path = random.choice(pool)
-            try:
-                raw = chosen_path.read_text(encoding="utf-8")
-                return _strip_yaml_front_matter(raw).strip()
-            except Exception:
-                return not_available
-
-    if scene_type == "unknown":
-        print(
-            "[WARNING] scene_type is unknown; style snippet matching is likely to fail. "
-            "Check scene plan path and cycle_id consistency.",
-            file=sys.stderr,
-        )
-    return not_available
+def _recent_summaries(xushikj_dir: Path) -> str:
+    return _read_text(xushikj_dir / 'summaries' / 'summary_index.md')
 
 
-def _discover_cycle_id(xushikj_dir: Path, requested_cycle_id: str) -> tuple[str, Path | None]:
-    """Return a usable cycle_id and optional cycle path, with compatibility fallback."""
-    scenes_root = xushikj_dir / "scenes"
-    preferred = scenes_root / requested_cycle_id
-    if preferred.exists():
-        return requested_cycle_id, preferred
-
-    # Handle legacy zero-padded naming mismatch.
-    if requested_cycle_id == "cycle_001" and (scenes_root / "cycle_1").exists():
-        return "cycle_1", scenes_root / "cycle_1"
-    if requested_cycle_id == "cycle_1" and (scenes_root / "cycle_001").exists():
-        return "cycle_001", scenes_root / "cycle_001"
-
-    candidates = sorted([p for p in scenes_root.glob("cycle_*") if p.is_dir()])
-    if candidates:
-        fallback = candidates[-1]
-        return fallback.name, fallback
-    return requested_cycle_id, None
+def _project_name(state: dict[str, Any], project_root: Path) -> str:
+    name = str(state.get('project_name', '')).strip()
+    return name or project_root.name
 
 
-def _extract_scene_type(scene_text: str) -> str:
-    m = re.search(r"scene_type\s*[:：]\s*([a-zA-Z_]+)", scene_text)
-    return m.group(1).lower().strip() if m else "unknown"
+def _project_context(state: dict[str, Any]) -> str:
+    parts = [
+        '## 当前项目硬约束',
+        f"- 每章最小中文字符数：{state.get('reply_length') or '（待确认）'}",
+        f"- 目标平台（可选）：{state.get('target_platform') or '（未设置）'}",
+        f"- 当前写作模式：{state.get('writing_mode') or 'style-clone'}",
+    ]
+    benchmark_state = state.get('benchmark_state', {})
+    if isinstance(benchmark_state, dict) and benchmark_state.get('sample_scope'):
+        parts.append(f"- 对标采样策略：{benchmark_state.get('sample_scope')}")
+    return '\n'.join(parts)
 
 
-def _extract_scene_intensity(scene_text: str) -> str:
-    m = re.search(r"scene_intensity\s*[:：]\s*(high|medium|low)", scene_text, flags=re.IGNORECASE)
-    return m.group(1).lower().strip() if m else "medium"
+def _ready_text(path: Path) -> bool:
+    if not path.exists():
+        return False
+    text = path.read_text(encoding='utf-8-sig', errors='replace').strip()
+    return bool(text) and PLACEHOLDER not in text
 
 
-def _extract_ids(scene_text: str, prefix: str) -> list[str]:
-    pattern = rf"\b{prefix}_[0-9]{{3,}}\b"
-    return sorted(set(re.findall(pattern, scene_text)))
+def _ready_character_cards(path: Path) -> bool:
+    if not path.exists():
+        return False
+    for card_path in sorted(path.glob('*.md')):
+        text = card_path.read_text(encoding='utf-8-sig', errors='replace').strip()
+        if text and PLACEHOLDER not in text:
+            return True
+    return False
 
 
-def _extract_char_names_from_scene(scene_text: str, kb_data: dict[str, Any]) -> list[str]:
-    m = re.search(r"viewpoint_character\s*[:：]\s*([^\n\r]+)", scene_text, flags=re.IGNORECASE)
-    if not m:
-        return []
-
-    raw = m.group(1).strip()
-    if not raw:
-        return []
-
-    candidates = [part.strip(" \t\"'[]（）()") for part in re.split(r"[，,、/]", raw)]
-    candidates = [name for name in candidates if name]
-    if not candidates:
-        return []
-
-    kb_chars = kb_data.get("characters", {})
-    if not isinstance(kb_chars, dict):
-        entities = kb_data.get("entities", {})
-        kb_chars = entities.get("characters", {}) if isinstance(entities, dict) else {}
-    if not isinstance(kb_chars, dict):
-        return []
-
-    kb_char_names = set(kb_chars.keys())
-    return [name for name in candidates if name in kb_char_names]
+def _memory_context(xushikj_dir: Path) -> str:
+    return _read_text(xushikj_dir / 'memory.md')
 
 
-def _load_scene_context(xushikj_dir: Path, state: dict[str, Any], chapter: int | None) -> tuple[str, list[str], list[str]]:
-    if chapter is None:
-        return "(no scene card loaded)", [], []
-
-    cycle_id = state.get("rolling_context", {}).get("cycle_id", "cycle_1")
-    effective_cycle_id, cycle_path = _discover_cycle_id(xushikj_dir, str(cycle_id))
-    scene_plan = xushikj_dir / "scenes" / effective_cycle_id / "scene_plans" / f"chapter_{chapter}.md"
-    if not scene_plan.exists():
-        if cycle_path is None:
-            return (
-                f"(scene plan not found: {scene_plan}; no cycle_* directory exists under {xushikj_dir / 'scenes'})",
-                [],
-                [],
-            )
-        return f"(scene plan not found: {scene_plan})", [], []
-
-    scene_text = scene_plan.read_text(encoding="utf-8")
-    char_ids = _extract_ids(scene_text, "char")
-    loc_ids = _extract_ids(scene_text, "loc")
-    return scene_text, char_ids, loc_ids
-
-
-def _load_template(step_key: str) -> str:
-    templates_dir = SKILL_ROOT / "templates" / "prompts"
-    if not templates_dir.exists():
-        # Phase-1 fallback template when Phase-2 templates are not created yet.
-        return (
-            "# Step Prompt\n\n"
-            "## Step\n{{step}}\n\n"
-            "## Project\n{{project_name}}\n\n"
-            "## Scene Card\n{{scene_card}}\n\n"
-            "## Recent Summaries\n{{recent_summaries}}\n\n"
-            "## KB Slice\n{{kb_slice}}\n\n"
-            "## Style Snippet\n{{style_snippet}}\n\n"
-            "## DNA Constraints\n{{dna_constraints}}\n\n"
-            "## Rules\n{{rules}}\n\n"
-            "## Forbidden Words\n{{forbidden_words}}\n\n"
-            "## Output Constraints\n{{output_constraints}}\n"
-        )
-
-    preferred_names = {
-        "0": "step_0_benchmark.md",
-        "4": "step_4_one_page.md",
-        "7": "step_7.md",
-        "8": "step_8.md",
-        "9": "step_9.md",
-        "11": "step_11.md",
-        "10_pipeline": "step_10_pipeline.md",
-        "10_interactive": "step_10_interactive.md",
-    }
-    preferred = preferred_names.get(step_key)
-    if preferred:
-        preferred_path = templates_dir / preferred
-        if preferred_path.exists():
-            return preferred_path.read_text(encoding="utf-8")
-        print(
-            f"[WARNING] _load_template: preferred template not found for step '{step_key}': {preferred_path}",
-            file=sys.stderr,
-        )
-
-    candidate = templates_dir / f"step_{step_key}.md"
-    if candidate.exists():
-        return candidate.read_text(encoding="utf-8")
-
-    wildcard_matches = sorted(templates_dir.glob(f"step_{step_key}_*.md"))
-    if wildcard_matches:
-        return wildcard_matches[0].read_text(encoding="utf-8")
-
-    # Writing mode compatibility: step_10_pipeline / step_10_interactive -> step_10_*.md
-    if step_key.startswith("10"):
-        writing_matches = sorted(templates_dir.glob("step_10_*.md"))
-        if writing_matches:
-            return writing_matches[0].read_text(encoding="utf-8")
-
-    fallback = templates_dir / "step_default.md"
-    if fallback.exists():
-        return fallback.read_text(encoding="utf-8")
-
-    print(
-        f"[WARNING] _load_template: no template found for step '{step_key}', using minimal fallback skeleton.",
-        file=sys.stderr,
-    )
-    return (
-        "# Step Prompt\n\n"
-        "Step: {{step}}\n"
-        "Project: {{project_name}}\n"
-        "Scene Card: {{scene_card}}\n"
-        "Recent Summaries: {{recent_summaries}}\n"
-        "KB Slice: {{kb_slice}}\n"
-        "Style Snippet: {{style_snippet}}\n"
-        "DNA Constraints: {{dna_constraints}}\n"
-        "Rules:\n{{rules}}\n"
-    )
+def _previous_excerpt(xushikj_dir: Path, chapter_no: int) -> str:
+    if chapter_no <= 1:
+        return '（暂无前文，可直接从本章开写）'
+    previous_path = xushikj_dir / 'chapters' / f'chapter_{chapter_no - 1}.md'
+    if not previous_path.exists():
+        return '（上一章正文暂缺）'
+    text = _read_text(previous_path)
+    if len(text) <= 1200:
+        return text
+    return text[-1200:]
 
 
 def _render(template: str, values: dict[str, str]) -> str:
-    text = template
+    rendered = template
     for key, value in values.items():
-        text = text.replace(f"{{{{{key}}}}}", value)
-    return text
+        rendered = rendered.replace(f'{{{{{key}}}}}', value)
+    return rendered
 
 
-def _approx_tokens(text: str) -> int:
-    # Rough multilingual estimate.
-    return max(1, len(text) // 2)
+def _character_cards_dir(xushikj_dir: Path) -> Path:
+    return xushikj_dir / 'outline' / 'characters'
 
 
-def _warn_step10_prerequisites(
-    xushikj_dir: Path,
-    step_key: str,
-    chapter: int | None,
-    scene_card: str,
-    style_snippet: str,
-    dna_lines: list[str],
-) -> None:
-    if not step_key.startswith("10"):
-        return
-
-    if chapter is not None and scene_card.startswith("(scene plan not found"):
-        print(
-            f"[WARNING] Step10 chapter={chapter} 未找到 scene plan，scene_type 将退化为 unknown。",
-            file=sys.stderr,
-        )
-
-    snippet_dir = xushikj_dir / "benchmark" / "style_snippets"
-    if style_snippet == "(style snippet not available)":
-        if not snippet_dir.exists() or not list(snippet_dir.glob("*.md")):
-            print(
-                "[WARNING] 本地未检测到 style_snippets。请先执行 write-snippet 子命令落盘切片。",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                "[WARNING] style_snippets 已存在，但本次未匹配到对应 scene_type/intensity。",
-                file=sys.stderr,
-            )
-
-    if not dna_lines:
-        print(
-            "[WARNING] 未加载到 DNA 约束。请确认 .xushikj/config/style_modules 下存在 dna_human_*.yaml 或 clone_*.yaml。",
-            file=sys.stderr,
-        )
+def _card_name(card_path: Path, text: str) -> str:
+    first_line = text.splitlines()[0].strip() if text.splitlines() else ''
+    if first_line.startswith('#'):
+        return first_line.lstrip('#').strip()
+    return card_path.stem
 
 
-def _step10_hard_stop_issues(
-    step_key: str,
-    chapter: int | None,
-    scene_card: str,
-    scene_type: str,
-    style_snippet: str,
-    dna_lines: list[str],
-) -> list[str]:
-    if not step_key.startswith("10"):
-        return []
-
-    issues: list[str] = []
-    if chapter is None:
-        issues.append("Step10 必须提供 --chapter。")
-    if scene_card.startswith("(scene plan not found"):
-        issues.append("缺少 scene_plan，无法执行 Step10。")
-    if scene_type == "unknown":
-        issues.append("scene_type=unknown，说明场景卡缺失 scene_type 字段或读取失败。")
-    if style_snippet == "(style snippet not available)":
-        issues.append("未匹配到 style_snippet，请先完成 benchmark 切片落盘。")
-    if not dna_lines:
-        issues.append("未加载到 DNA 约束（dna_human_*.yaml/clone_*.yaml）。")
-    return issues
+def _format_cards(card_paths: list[Path]) -> str:
+    if not card_paths:
+        return '（暂无人物卡）'
+    blocks: list[str] = []
+    for path in card_paths:
+        text = _read_text(path)
+        name = _card_name(path, text)
+        blocks.append(f'### {name}\n来源：{path.name}\n{text}')
+    return '\n\n'.join(blocks)
 
 
-def _step10_remediation_hints(
-    xushikj_dir: Path,
-    chapter: int | None,
-    scene_card: str,
-    scene_type: str,
-    style_snippet: str,
-    dna_lines: list[str],
-) -> list[str]:
-    hints: list[str] = []
-
-    if chapter is None:
-        hints.append("补充参数：--chapter <N>")
-
-    if scene_card.startswith("(scene plan not found"):
-        if chapter is None:
-            hints.append("先确定章节号，再创建 scene_plan。")
-        else:
-            hints.append(
-                f"创建场景卡：{xushikj_dir / 'scenes' / 'cycle_1' / 'scene_plans' / f'chapter_{chapter}.md'}"
-            )
-
-    if scene_type == "unknown":
-        hints.append("在 scene_plan 中补齐字段：scene_type: <daily/combat/...>")
-
-    if style_snippet == "(style snippet not available)":
-        hints.append(
-            "先执行切片落盘：python narrativespace/scripts/slice_library.py write-snippet --project-dir . --scene-type daily --content-file snippet_daily.md"
-        )
-
-    if not dna_lines:
-        hints.append(
-            "先写入 DNA：python narrativespace/scripts/slice_library.py write-dna --project-dir . --project-name my_project --dna-json dna_profile.json"
-        )
-
-    hints.append(
-        "修复后重新组装：python narrativespace/scripts/assemble_prompt.py --project-dir .xushikj --step 10 --chapter <N> --writing-mode pipeline --output file"
-    )
-    return hints
+def _existing_character_cards(xushikj_dir: Path) -> str:
+    cards_dir = _character_cards_dir(xushikj_dir)
+    return _format_cards(sorted(cards_dir.glob('*.md')))
 
 
-def build_prompt(
+def _select_character_cards(xushikj_dir: Path, query_text: str, limit: int = 4) -> str:
+    cards_dir = _character_cards_dir(xushikj_dir)
+    card_paths = sorted(cards_dir.glob('*.md'))
+    if not card_paths:
+        return '（暂无人物卡）'
+    lowered = query_text.lower()
+    scored: list[tuple[int, Path]] = []
+    for path in card_paths:
+        text = _read_text(path)
+        name = _card_name(path, text)
+        score = 0
+        for token in {path.stem.lower(), name.lower()}:
+            if token and token in lowered:
+                score += 2
+        if text and any(line.strip() and line.strip() in query_text for line in text.splitlines()[:3]):
+            score += 1
+        scored.append((score, path))
+    scored.sort(key=lambda item: (-item[0], item[1].name))
+    selected = [path for _, path in scored[:limit] if _read_text(path) != EMPTY_PLACEHOLDER]
+    return _format_cards(selected)
+
+
+def _benchmark_source_samples(xushikj_dir: Path) -> str:
+    benchmark_dir = xushikj_dir / 'benchmark'
+    registry_path = benchmark_dir / 'source_registry.json'
+    source_path: Path | None = None
+    source_title = ''
+    if registry_path.exists():
+        payload = _load_yaml_or_json(registry_path, {})
+        candidate = payload.get('source_file')
+        if candidate:
+            source_path = Path(str(candidate))
+            source_title = str(payload.get('source_title', ''))
+    if source_path is None or not source_path.exists():
+        for candidate in sorted(benchmark_dir.glob('*')):
+            if candidate.name in {'style_notes.md', 'source_registry.json'} or candidate.is_dir():
+                continue
+            if candidate.suffix.lower() in {'.md', '.txt'}:
+                source_path = candidate
+                source_title = candidate.stem
+                break
+    if source_path is None or not source_path.exists():
+        return '（未登记对标原文；若用户提供原文文件，请先写入 `.xushikj/benchmark/source_registry.json` 或放入 benchmark 目录，再重新组装 Prompt）'
+
+    raw_text = source_path.read_text(encoding='utf-8-sig', errors='replace').replace('\r\n', '\n').strip()
+    if not raw_text:
+        return f'（已找到对标原文 {source_path.name}，但内容为空）'
+
+    def excerpt(ratio: float, width: int = 700) -> str:
+        if len(raw_text) <= width:
+            return raw_text
+        center = int(len(raw_text) * ratio)
+        start = max(0, center - width // 2)
+        end = min(len(raw_text), start + width)
+        start_break = raw_text.rfind('\n', 0, start)
+        end_break = raw_text.find('\n', end)
+        if start_break != -1:
+            start = start_break + 1
+        if end_break != -1:
+            end = end_break
+        snippet = raw_text[start:end].strip()
+        return snippet or raw_text[max(0, center - width // 2): min(len(raw_text), center + width // 2)].strip()
+
+    title = source_title or source_path.name
+    return '\n\n'.join([
+        f'来源：{title} / 文件：{source_path}',
+        '### 前段样本\n' + excerpt(0.15),
+        '### 中段样本\n' + excerpt(0.50),
+        '### 后段样本\n' + excerpt(0.85),
+    ])
+
+
+def _status(project_root: Path, xushikj_dir: Path) -> str:
+    initialized = xushikj_dir.exists() and (xushikj_dir / 'state.json').exists()
+    if not initialized:
+        return f'project={project_root}\ninitialized=false'
+    state = _load_state(xushikj_dir)
+    workflow = state['workflow']
+    chapter_no = int(state.get('current_chapter', 1))
+    return '\n'.join([
+        f'project={project_root}',
+        'initialized=true',
+        f"current_step={state.get('current_step', '')}",
+        f"current_chapter={chapter_no}",
+        f"writing_mode={state.get('writing_mode', 'style-clone')}",
+        f"reply_length={state.get('reply_length', '')}",
+        f"target_platform={state.get('target_platform', '')}",
+        f"pending_user_confirmation={str(bool(workflow.get('pending_user_confirmation'))).lower()}",
+        f"pending_step={workflow.get('pending_step', '')}",
+        f"next_step_suggestion={workflow.get('next_step_suggestion', '')}",
+        f"benchmark_ready={_ready_text(xushikj_dir / 'benchmark' / 'style_notes.md')}",
+        f"worldview_ready={_ready_text(xushikj_dir / 'worldbuilding' / 'worldview.md')}",
+        f"characters_ready={_ready_character_cards(_character_cards_dir(xushikj_dir))}",
+        f"chapter_outline_ready={_ready_text(xushikj_dir / 'chapter_outlines' / f'chapter_{chapter_no}.md')}",
+        f"chapter_exists={(xushikj_dir / 'chapters' / f'chapter_{chapter_no}.md').exists()}",
+    ])
+
+
+def _resolve_humanizer_chapter(
     project_root: Path,
     xushikj_dir: Path,
-    step: str,
     chapter: int | None,
-    writing_mode_override: str | None = None,
-    allow_step10_degraded: bool = False,
-) -> str:
-    state_path = xushikj_dir / "state.json"
-    if not state_path.exists():
-        raise FileNotFoundError(f"Missing state.json: {state_path}")
+    chapter_file: Path | None,
+) -> tuple[Path, str]:
+    if chapter_file is not None:
+        path = chapter_file.resolve()
+        if not path.exists():
+            raise FileNotFoundError(f'Humanizer chapter file not found: {path}')
+        return path, path.stem
 
-    state = _read_json(state_path)
-    writing_mode = _resolve_writing_mode(state, writing_mode_override)
-    step_key = _pick_step_key(step, writing_mode)
+    if chapter is not None:
+        candidates = [
+            xushikj_dir / 'chapters' / f'chapter_{chapter}.md',
+            project_root / 'chapters' / f'chapter_{chapter}.md',
+            project_root / f'chapter_{chapter}.md',
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate, f'第 {chapter} 章'
+        raise FileNotFoundError(f'Humanizer chapter file not found: {candidates[0]}')
 
-    scripts_dir = SKILL_ROOT / "scripts"
-    mapping = _load_step_rule_map(scripts_dir)
-    step_config = mapping.get("steps", {}).get(step_key)
-    if not step_config:
-        raise ValueError(f"No rule mapping for step key: {step_key}")
+    state_path = xushikj_dir / 'state.json'
+    if state_path.exists():
+        state = _load_state(xushikj_dir)
+        chapter_no = int(state.get('current_chapter', 1))
+        chapter_path = xushikj_dir / 'chapters' / f'chapter_{chapter_no}.md'
+        if not chapter_path.exists():
+            raise FileNotFoundError(f'Humanizer chapter file not found: {chapter_path}')
+        return chapter_path, f'第 {chapter_no} 章'
 
-    config_dir = xushikj_dir / "config"
-    fallback_config_dir = SKILL_ROOT / "config"
-    if not config_dir.exists():
-        config_dir = fallback_config_dir
-
-    max_rules = mapping.get("meta", {}).get("max_rules_per_step", 10)
-    rules = extract_rules(config_dir, step_config.get("rule_sources", []), max_rules=max_rules)
-
-    core_rules_path = config_dir / "core_15_rules.yaml"
-    core_rules = extract_core_rules(core_rules_path, limit=10)
-
-    style_rules_path = config_dir / "style_rules.yaml"
-    forbidden_words = extract_forbidden_words(style_rules_path, limit=20)
-
-    scene_card, char_ids, loc_ids = _load_scene_context(xushikj_dir, state, chapter)
-    scene_type = _extract_scene_type(scene_card)
-    scene_intensity = _extract_scene_intensity(scene_card)
-
-    kb_path = xushikj_dir / "knowledge_base.json"
-    kb_slice = "(kb slice not available)"
-    if kb_path.exists():
-        query_char_ids = list(char_ids)
-        if not query_char_ids:
-            kb_data = _read_json(kb_path)
-            query_char_ids = _extract_char_names_from_scene(scene_card, kb_data)
-        if query_char_ids or loc_ids:
-            kb_slice_obj = slice_kb(kb_path, character_ids=query_char_ids, location_ids=loc_ids)
-            kb_slice = format_kb_slice(kb_slice_obj)
-
-    recent_summaries = _read_recent_summaries(xushikj_dir, last_n=2)
-
-    dna_lines: list[str] = []
-    style_snippet = ""
-    if step_key.startswith("10"):
-        style_modules_dir = config_dir / "style_modules"
-        dna_lines = load_dna_constraints(style_modules_dir, max_do=5, max_dont=5)
-        style_snippet = _load_style_snippet(state, scene_type, scene_intensity, xushikj_dir)
-
-    _warn_step10_prerequisites(
-        xushikj_dir=xushikj_dir,
-        step_key=step_key,
-        chapter=chapter,
-        scene_card=scene_card,
-        style_snippet=style_snippet,
-        dna_lines=dna_lines,
-    )
-
-    if not allow_step10_degraded:
-        issues = _step10_hard_stop_issues(
-            step_key=step_key,
-            chapter=chapter,
-            scene_card=scene_card,
-            scene_type=scene_type,
-            style_snippet=style_snippet,
-            dna_lines=dna_lines,
-        )
-        if issues:
-            hints = _step10_remediation_hints(
-                xushikj_dir=xushikj_dir,
-                chapter=chapter,
-                scene_card=scene_card,
-                scene_type=scene_type,
-                style_snippet=style_snippet,
-                dna_lines=dna_lines,
-            )
-            raise ValueError(
-                "Step10 HARD STOP: "
-                + " | ".join(issues)
-                + "\nFix:\n- "
-                + "\n- ".join(hints)
-            )
-
-    all_rules = core_rules + rules + dna_lines
-    if not all_rules:
-        all_rules = ["(no rules)"]
-
-    template = _load_template(step_key)
-    prompt = _render(
-        template,
-        {
-            "step": step,
-            "step_key": step_key,
-            "project_name": str(state.get("project_name", "")),
-            "benchmark_works": "、".join(state.get("config", {}).get("benchmark_works", [])) or "(none)",
-            "sample_scope": str(state.get("benchmark_state", {}).get("sample_scope", "quick")),
-            "scene_type": scene_type,
-            "scene_card": scene_card,
-            "recent_summaries": recent_summaries,
-            "kb_slice": kb_slice,
-            "style_snippet": style_snippet,
-            "dna_constraints": "\n".join(dna_lines) if dna_lines else "(no dna constraints)",
-            "rules": "\n".join(all_rules),
-            "forbidden_words": "、".join(forbidden_words) if forbidden_words else "(none)",
-            "output_constraints": "Follow step contract strictly. Do not auto-advance to next step.",
-            "chapter": str(chapter) if chapter is not None else "",
-        },
-    )
-    return prompt
+    raise FileNotFoundError('Humanizer requires --chapter-file or --chapter when state.json is unavailable')
 
 
-def cmd_status(project_root: Path, xushikj_dir: Path) -> int:
-    state_path = xushikj_dir / "state.json"
-    if not state_path.exists():
-        print(f"state.json not found: {state_path}")
-        return 1
+def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Path | None = None) -> str:
+    project_root, xushikj_dir = _resolve_paths(project_dir)
+    if step == 'status':
+        return _status(project_root, xushikj_dir)
+    if step not in TEMPLATES:
+        raise ValueError(f'Unsupported Lite step: {step}')
+    if step != 'humanizer':
+        assert_step_allowed(project_root, step)
+    if step == 'humanizer':
+        if (xushikj_dir / 'state.json').exists():
+            assert_step_allowed(project_root, step)
+        template = read_text_utf8(PROMPTS_DIR / TEMPLATES[step], '')
+        humanizer_chapter_path, chapter_label = _resolve_humanizer_chapter(project_root, xushikj_dir, chapter, chapter_file)
+        values = {
+            'chapter_label': chapter_label,
+            'chapter_text': _read_text(humanizer_chapter_path),
+            'rules': _load_rules(step),
+            'dna_constraints': _humanizer_dna_constraints(xushikj_dir),
+        }
+        return _render(template, values)
 
-    state = _read_json(state_path)
-    print("Project:", state.get("project_name", ""))
-    print("Current step:", state.get("current_step"))
-    print("Planning current step:", state.get("planning_state", {}).get("current_step"))
-    print("Current chapter:", state.get("chapter_state", {}).get("current_chapter"))
-    print("Writing mode:", state.get("config", {}).get("writing_mode", "pipeline"))
-    print("Cycle:", state.get("rolling_context", {}).get("cycle_id", "cycle_1"))
-    return 0
+    state = _load_state(xushikj_dir)
+    project_name = _project_name(state, project_root)
+    chapter_no = chapter or int(state.get('current_chapter', 1))
+    style_notes_path = xushikj_dir / 'benchmark' / 'style_notes.md'
+    worldview_path = xushikj_dir / 'worldbuilding' / 'worldview.md'
+    characters_dir = _character_cards_dir(xushikj_dir)
+    outline_path = xushikj_dir / 'chapter_outlines' / f'chapter_{chapter_no}.md'
+    template = read_text_utf8(PROMPTS_DIR / TEMPLATES[step], '')
 
+    if step in {'worldbuilding', 'characters', 'chapter-outline', '10', 'writing'} and not _ready_text(style_notes_path):
+        raise FileNotFoundError(f'benchmark-lite 尚未完成，请先产出可用的文风特征指南：{style_notes_path}')
+    if step in {'characters', 'chapter-outline', '10', 'writing'} and not _ready_text(worldview_path):
+        raise FileNotFoundError(f'世界观设定尚未完成，请先补齐：{worldview_path}')
+    if step in {'chapter-outline', '10', 'writing'} and not _ready_character_cards(characters_dir):
+        raise FileNotFoundError(f'人物卡片设定尚未完成，请先补齐：{characters_dir}')
+    if step in {'10', 'writing'} and not _ready_text(outline_path):
+        raise FileNotFoundError(f'章纲讨论尚未完成，请先补齐：{outline_path}')
+    if step in {'10', 'writing'} and not (isinstance(state.get('reply_length'), int) and int(state.get('reply_length')) > 0):
+        raise ValueError('进入 writing 前必须先确认 reply_length')
 
-def cmd_advance(project_root: Path, xushikj_dir: Path) -> int:
-    state_path = xushikj_dir / "state.json"
-    if not state_path.exists():
-        print(f"state.json not found: {state_path}")
-        return 1
-
-    state = _read_json(state_path)
-    current = state.get("current_step", "project_card")
-
-    # v10.0 sequence
-    V10_SEQUENCE = ["project_card", 4, 7, 8, 9, 10, 11]
-    try:
-        idx = V10_SEQUENCE.index(current)
-        nxt = V10_SEQUENCE[idx + 1] if idx + 1 < len(V10_SEQUENCE) else current
-    except (ValueError, IndexError):
-        # current step not in v10.0 sequence; try numeric advance as fallback
-        try:
-            nxt = int(float(str(current))) + 1
-        except Exception:
-            nxt = 4
-
-    completed = state.get("completed_steps", [])
-    if current not in completed:
-        completed.append(current)
-    state["completed_steps"] = completed
-    state["current_step"] = nxt
-    state["updated_at"] = ""
-    _write_json(state_path, state)
-
-    print(f"Advanced step: {current} -> {nxt}")
-    return 0
+    previous_excerpt = _previous_excerpt(xushikj_dir, chapter_no)
+    selection_query = '\n'.join([_read_text(outline_path, ''), previous_excerpt])
+    values = {
+        'project_name': project_name,
+        'project_context': _project_context(state),
+        'recent_summaries': _recent_summaries(xushikj_dir),
+        'rules': _load_rules(step),
+        'style_guide': _read_text(style_notes_path),
+        'worldview_text': _read_text(worldview_path),
+        'existing_character_cards': _existing_character_cards(xushikj_dir),
+        'character_cards': _select_character_cards(xushikj_dir, selection_query),
+        'chapter_outline': _read_text(outline_path),
+        'chapter_label': f'第 {chapter_no} 章',
+        'reply_length': str(state.get('reply_length') or '（待确认）'),
+        'target_platform': str(state.get('target_platform') or '（未设置）'),
+        'memory_context': _memory_context(xushikj_dir),
+        'previous_excerpt': previous_excerpt,
+        'benchmark_source_samples': _benchmark_source_samples(xushikj_dir),
+        'existing_style_notes': _read_text(style_notes_path),
+    }
+    return _render(template, values)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Assemble step-level prompt package")
-    p.add_argument("--project-dir", required=True, type=Path, help="Project root or .xushikj path")
-    p.add_argument("--step", type=str, help="Workflow step, e.g. 1, 2.5, 10")
-    p.add_argument("--chapter", type=int, help="Chapter number for writing steps")
-    p.add_argument(
-        "--output",
-        choices=["stdout", "file"],
-        default="stdout",
-        help="Output prompt to stdout or file",
-    )
-    p.add_argument("--output-file", type=Path, help="Output file path when --output file")
-    p.add_argument(
-        "--writing-mode",
-        choices=["pipeline", "interactive"],
-        help="Override writing mode for this run (does not mutate state.json)",
-    )
-    p.add_argument(
-        "--allow-step10-degraded",
-        action="store_true",
-        help="Allow Step10 assembly with missing prerequisites (not recommended)",
-    )
-    p.add_argument("--status", action="store_true", help="Print current project status")
-    p.add_argument("--advance", action="store_true", help="Advance current step in state.json")
-    return p
+    parser = argparse.ArgumentParser(description='Assemble narrativespace Lite prompt')
+    parser.add_argument('--project-dir', required=True, type=Path, help='Project root or .xushikj path')
+    parser.add_argument('--step', help='0 / benchmark-lite / worldbuilding / characters / chapter-outline / 10 / writing / humanizer')
+    parser.add_argument('--chapter', type=int, help='Optional chapter number for step chapter-outline/10/humanizer')
+    parser.add_argument('--chapter-file', type=Path, help='Optional standalone chapter file for humanizer')
+    parser.add_argument('--output', choices=['stdout', 'file'], default='stdout')
+    parser.add_argument('--output-file', type=Path)
+    parser.add_argument('--status', action='store_true', help='Show Lite project status')
+    parser.add_argument('--writing-mode', help='Reserved for compatibility; Lite currently uses style-clone only')
+    return parser
 
 
 def main() -> int:
+    reconfigure_stdio_utf8()
     args = build_arg_parser().parse_args()
-    project_root, xushikj_dir = _resolve_paths(args.project_dir)
-
-    if args.status:
-        return cmd_status(project_root, xushikj_dir)
-    if args.advance:
-        return cmd_advance(project_root, xushikj_dir)
-
-    if not args.step:
-        print("--step is required unless using --status or --advance")
-        return 2
-
-    try:
-        prompt = build_prompt(
-            project_root,
-            xushikj_dir,
-            args.step,
-            args.chapter,
-            writing_mode_override=args.writing_mode,
-            allow_step10_degraded=args.allow_step10_degraded,
-        )
-    except (ValueError, FileNotFoundError) as exc:
-        print(f"[ERROR] {exc}", file=sys.stderr)
-        return 1
-    token_est = _approx_tokens(prompt)
-
-    if args.output == "stdout":
-        print(prompt)
-        print(f"\n\n[meta] approx_tokens={token_est}")
-        return 0
-
-    out = args.output_file or (xushikj_dir / "drafts" / f"assembled_step_{args.step}.md")
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(prompt, encoding="utf-8")
-    print(f"Prompt written to: {out}")
-    print(f"[meta] approx_tokens={token_est}")
+    step = 'status' if args.status else args.step
+    if not step:
+        raise SystemExit('--step or --status is required')
+    result = assemble(args.project_dir, step, args.chapter, args.chapter_file)
+    if args.output == 'file':
+        if not args.output_file:
+            raise SystemExit('--output file requires --output-file')
+        args.output_file.parent.mkdir(parents=True, exist_ok=True)
+        write_text_utf8(args.output_file, result + '\n')
+        print(f'[assemble_prompt] wrote {args.output_file}')
+    else:
+        print(result)
     return 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+if __name__ == '__main__':
+    raise SystemExit(main())

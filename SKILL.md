@@ -1,36 +1,51 @@
-﻿---
-name: narrativespace-xushikj
-description: 叙事空间创作系统（一体化版）精简入口。保留模块化能力，通过脚本化编排按步骤投喂提示词。
+---
+name: narrativespace-lite
+description: Lite 版叙事空间创作系统。以 benchmark-lite → 世界观与力量体系讨论 → 人物卡片设定 → 章纲讨论 → 正文写作为主线，humanizer 为独立后处理。
 metadata:
-  version: 10.0.0
-  edition: unified-lite
-  skills_included: 8
+  version: 11.0.0
+  edition: lite
+  architecture: 5+1
   triggers:
     - 叙事空间
     - 网文创作
-    - 商业小说
+    - 小说续写
 ---
 
-# 叙事空间创作系统（精简版）
+# 叙事空间 Lite
 
 ## 定位
-统一路由入口，负责把用户请求分发到对应模块，不承载全量执行细则。
+这是一个面向“强对标 + 强讨论 + 小步续写”的 Lite 创作 Skill：
+- 强制 5 模块：benchmark-lite / worldbuilding / characters / chapter-outline / writing
+- 可选 1 模块：humanizer
+- benchmark-lite 输出的 `style_notes.md` 是后续人物、章纲、写作的硬约束来源
 
-## 启动行为
-- 启动时优先检查项目根目录下是否存在 `.xushikj/state.json`。
-- 若不存在且当前为代理模式（具备工具权限），应自动执行 `scripts/init.py` 完成初始化。
-- 若不存在且当前仅为普通聊天模式，则提示用户先初始化；除 `humanizer` 外不进入其他模块。
+## 启动规则
+1. 先检查项目根目录下是否存在 `.xushikj/state.json`
+2. 若不存在，优先执行 `python scripts/init.py --project-dir <项目根目录> --yes`
+3. benchmark-lite 完成前，不得进入 worldbuilding / characters / chapter-outline / writing
+4. worldbuilding 完成前，不得进入 characters / chapter-outline / writing
+5. characters 完成前，不得进入 chapter-outline / writing
+6. 在进入 writing 前，必须先向用户确认 `reply_length`（每章最小中文字符数）
+7. `target_platform` 改为可选上下文，不再作为主流程硬门禁
+8. 初始化完成后，再使用 `python scripts/assemble_prompt.py` 组装当前步骤 Prompt
+9. 除 humanizer 外，所有模块都以 `.xushikj/` 为唯一运行时目录
+10. 若 `workflow.pending_user_confirmation=true`，不得直接进入下一步骤，必须先等待用户确认并执行 `python scripts/workflow_state.py confirm --project-dir <项目根目录>`
 
-## 模块
-- benchmark: 步骤0 对标分析
-- planning: 快速立项、步骤4（一页大纲）、步骤11（书名简介）
-- knowledge-base: 步骤7 知识库
-- scenes: 步骤8-9 场景
-- writing: 步骤10A 流水线写作
-- interactive: 步骤10B 互动写作
-- humanizer: 后处理
+## 主流程
+1. Step `benchmark-lite`：对标 / 文风克隆
+2. Step `worldbuilding`：世界观与力量体系讨论
+3. Step `characters`：人物卡片设定
+4. Step `chapter-outline`：章纲讨论
+5. Step `10`：正文写作
+6. `humanizer`（可选）：发布前后处理 / 去 AI 痕迹
 
-## 使用建议
-- 规则与上下文由脚本按步骤组装（scripts/assemble_prompt.py）。
-- 模型一次只处理当前步骤的必要约束，避免全量规则过载。
-- 历史长版说明见 SKILL_legacy.md。
+## 边界
+- 不再使用 `project_card`、卷纲、轻量知识库、章节卡这条旧 Lite 链路
+- benchmark-lite 必须尽量按原版对标契约输出完整 style_notes，只去掉场景切片 / 风格切片落盘要求
+- 对标采样不得只读开头几行；若存在登记原文，必须覆盖前段 / 中段 / 后段多个样本
+- 人物卡片负责沉淀主要人物的稳定设定；writing 仅按需加载相关卡片，不回退旧 KB 体系
+- Step 10 正文写作结果必须先经 `python scripts/landing.py writing --project-dir <项目根目录> --chapter <N> --input-file <模型输出文件>` 落盘，再执行 `python scripts/validate_state.py --project-dir <项目根目录> --for-step 10 --chapter <N>` 做字数验收
+- Step 10 只校验 `reply_length` 对应的最小中文字符数，不再施加平台硬上限
+- humanizer 可通过 `python scripts/assemble_prompt.py --project-dir <目录> --step humanizer --chapter-file <章节文件>` 独立使用
+- humanizer 的规则内容应与 `main` 分支后处理模块保持一致，不再做 Lite 简化
+- humanizer 结果通过 `python scripts/landing.py humanizer --project-dir <目录> --chapter-file <章节文件> --input-file <模型输出文件>` 落盘到 `.xushikj/humanized/`
