@@ -147,6 +147,8 @@ def validate_all() -> bool:
         issues.append('SKILL.md 缺少 benchmark 强制前置口径')
     if 'characters 完成前，不得进入 chapter-outline / writing' not in root_skill_text:
         issues.append('SKILL.md 缺少人物卡门禁口径')
+    if 'Skill 默认只负责组装 Prompt 包' not in root_skill_text:
+        issues.append('SKILL.md 缺少 prompt-only 定位')
     if '只校验 `reply_length` 对应的最小中文字符数' not in root_skill_text:
         issues.append('SKILL.md 缺少仅保留下限的字数规则')
     if 'main` 分支后处理模块保持一致' not in root_skill_text:
@@ -157,6 +159,8 @@ def validate_all() -> bool:
         issues.append('README.md 缺少新 Lite 主流程命名')
     if '完整的 style_notes 契约' not in readme_text:
         issues.append('README.md 缺少 benchmark 完整契约说明')
+    if 'Prompt-only 执行方式' not in readme_text or '--format json' not in readme_text:
+        issues.append('README.md 缺少 Prompt-only 或 JSON Prompt 包说明')
 
     quickstart_text = read_text_utf8(SKILL_ROOT / 'QUICKSTART.md', '')
     if '--step worldbuilding' not in quickstart_text:
@@ -169,6 +173,12 @@ def validate_all() -> bool:
         issues.append('QUICKSTART.md 缺少 humanizer 独立示例')
     if '修改清单' not in quickstart_text:
         issues.append('QUICKSTART.md 缺少 humanizer 新输出契约口径')
+    if '--format json' not in quickstart_text:
+        issues.append('QUICKSTART.md 缺少 JSON Prompt 包示例')
+
+    assemble_prompt_text = read_text_utf8(scripts_root / 'assemble_prompt.py', '')
+    if 'prompt-only' not in assemble_prompt_text or '--format' not in assemble_prompt_text:
+        issues.append('assemble_prompt.py 缺少 Prompt 包或 JSON 输出支持')
 
     validate_state_text = read_text_utf8(scripts_root / 'validate_state.py', '')
     if 'characters' not in validate_state_text:

@@ -1,7 +1,7 @@
 # Humanizer Lite
 
 ## 模块身份
-你是 Lite 版 humanizer 模块中的小说文本后处理专家。
+你是一个将接收本 Prompt 包并执行章节润色的外部模型。
 
 ## 当前任务输入
 - 目标章节：{{chapter_label}}

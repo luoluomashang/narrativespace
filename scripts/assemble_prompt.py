@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,75 @@ TEMPLATES = {
     '10': 'step_10_writing.md',
     'writing': 'step_10_writing.md',
     'humanizer': 'step_humanizer.md',
+}
+STEP_PACKAGE_INFO = {
+    'benchmark-lite': {
+        'title': 'benchmark-lite Prompt 包',
+        'objective': '组装完整对标分析 Prompt，供外部模型生成可直接约束后续步骤的 style_notes。',
+        'expected_output_schema': [
+            '一、文风特征摘要',
+            '二、世界观构建模式',
+            '三、情节设计模式',
+            '四、角色设计模式',
+            '五、内化风格参数（style_profile / confidence_notes）',
+            '六、多段原文采样观察（前段 / 中段 / 后段）',
+            '七、小步续写约束',
+        ],
+    },
+    'worldbuilding': {
+        'title': 'worldbuilding Prompt 包',
+        'objective': '组装世界观与力量体系 Prompt，供外部模型产出可长期复用的设定文档。',
+        'expected_output_schema': [
+            '1. 世界观底层规则',
+            '2. 力量体系 / 修炼体系',
+            '3. 代价与边界',
+            '4. 主角起点与成长逻辑',
+            '5. 世界冲突源',
+            '6. 长期硬设定',
+        ],
+    },
+    'characters': {
+        'title': 'characters Prompt 包',
+        'objective': '组装人物卡片设定 Prompt，供外部模型按统一字段生成核心人物卡。',
+        'expected_output_schema': [
+            '每个主要人物单独成卡',
+            '字段至少覆盖：名字、角色类型、价值观、抱负、当前目标、内在矛盾、行为底层逻辑、压力反应基线、欲望 / 恐惧 / 羞耻 / 债务',
+        ],
+    },
+    'chapter-outline': {
+        'title': 'chapter-outline Prompt 包',
+        'objective': '组装当前章节骨架 Prompt，供外部模型生成可直接进入写作的章纲。',
+        'expected_output_schema': [
+            '1. 本章目标',
+            '2. 核心冲突',
+            '3. 关键转折',
+            '4. 情绪推进',
+            '5. 关键场面',
+            '6. 结尾钩子',
+            '7. 本章必须写出的信息',
+            '8. 本章必须避免的偏移',
+        ],
+    },
+    'writing': {
+        'title': 'writing Prompt 包',
+        'objective': '组装正文写作 Prompt，供外部模型输出正文与回填所需结构化区块。',
+        'expected_output_schema': [
+            '正文',
+            '## 本章摘要',
+            '## 状态变化',
+            '## 新增设定',
+            '## 未兑现钩子',
+        ],
+    },
+    'humanizer': {
+        'title': 'humanizer Prompt 包',
+        'objective': '组装章节润色 Prompt，供外部模型按 main 对齐规则执行去 AI 痕迹处理。',
+        'expected_output_schema': [
+            '正文',
+            '## 修改清单（推荐）',
+            '兼容旧版：## 修改说明 / ## 豁免记录 / ## R-DNA校验',
+        ],
+    },
 }
 
 
@@ -210,6 +280,10 @@ def _render(template: str, values: dict[str, str]) -> str:
     return rendered
 
 
+def _canonical_step(step: str) -> str:
+    return 'writing' if step in {'10', 'writing'} else step
+
+
 def _character_cards_dir(xushikj_dir: Path) -> Path:
     return xushikj_dir / 'outline' / 'characters'
 
@@ -370,6 +444,182 @@ def _resolve_humanizer_chapter(
     raise FileNotFoundError('Humanizer requires --chapter-file or --chapter when state.json is unavailable')
 
 
+def _input_context_summary(
+    project_root: Path,
+    xushikj_dir: Path,
+    state: dict[str, Any] | None,
+    step: str,
+    chapter: int | None,
+    chapter_file: Path | None,
+) -> list[str]:
+    canonical_step = _canonical_step(step)
+    project_name = _project_name(state or {}, project_root)
+    lines = [
+        f'项目名：{project_name}',
+        f'项目根目录：{project_root}',
+        f'运行时目录：{xushikj_dir}',
+        f'步骤标识：{canonical_step}',
+    ]
+    if state:
+        lines.extend([
+            f"state.current_step：{state.get('current_step', '')}",
+            f"state.current_chapter：{state.get('current_chapter', 1)}",
+            f"state.reply_length：{state.get('reply_length') or '（待确认）'}",
+            f"state.target_platform：{state.get('target_platform') or '（未设置）'}",
+            f"state.writing_mode：{state.get('writing_mode') or 'style-clone'}",
+        ])
+    if canonical_step == 'humanizer':
+        chapter_path, chapter_label = _resolve_humanizer_chapter(project_root, xushikj_dir, chapter, chapter_file)
+        lines.extend([
+            f'目标章节：{chapter_label}',
+            f'章节文件：{chapter_path}',
+        ])
+        return lines
+
+    chapter_no = chapter or int((state or {}).get('current_chapter', 1))
+    lines.extend([
+        f'目标章节：第 {chapter_no} 章',
+        f'文风指南：{xushikj_dir / "benchmark" / "style_notes.md"}',
+        f'世界观设定：{xushikj_dir / "worldbuilding" / "worldview.md"}',
+        f'人物卡目录：{xushikj_dir / "outline" / "characters"}',
+        f'章纲文件：{xushikj_dir / "chapter_outlines" / f"chapter_{chapter_no}.md"}',
+    ])
+    return lines
+
+
+def _result_write_back(
+    project_root: Path,
+    xushikj_dir: Path,
+    step: str,
+    chapter: int | None,
+    chapter_file: Path | None,
+) -> dict[str, str]:
+    canonical_step = _canonical_step(step)
+    state = _load_state(xushikj_dir) if (xushikj_dir / 'state.json').exists() else {}
+    chapter_no = chapter or int(state.get('current_chapter', 1))
+    # These command strings are meant to be copied into a shell, so every filesystem path
+    # that appears inside an executable command must be shell-quoted defensively.
+    project_arg = shlex.quote(str(project_root))
+    if canonical_step == 'benchmark-lite':
+        return {
+            'save_target': str(xushikj_dir / 'benchmark' / 'style_notes.md'),
+            'landing_command': '（无专用落盘脚本；请将外部模型结果人工确认后写入该文件）',
+            'validation_command': f'python scripts/validate_state.py --project-dir {project_arg} --for-step worldbuilding',
+            'next_step_after_success': 'worldbuilding',
+        }
+    if canonical_step == 'worldbuilding':
+        return {
+            'save_target': str(xushikj_dir / 'worldbuilding' / 'worldview.md'),
+            'landing_command': '（无专用落盘脚本；请将外部模型结果人工确认后写入该文件）',
+            'validation_command': f'python scripts/validate_state.py --project-dir {project_arg} --for-step characters',
+            'next_step_after_success': 'characters',
+        }
+    if canonical_step == 'characters':
+        return {
+            'save_target': str(xushikj_dir / 'outline' / 'characters'),
+            'landing_command': '（无专用落盘脚本；请将每个角色结果分别写入该目录下的独立 Markdown 文件）',
+            'validation_command': f'python scripts/validate_state.py --project-dir {project_arg} --for-step chapter-outline --chapter {chapter_no}',
+            'next_step_after_success': 'chapter-outline',
+        }
+    if canonical_step == 'chapter-outline':
+        return {
+            'save_target': str(xushikj_dir / 'chapter_outlines' / f'chapter_{chapter_no}.md'),
+            'landing_command': '（无专用落盘脚本；请将外部模型结果人工确认后写入该文件）',
+            'validation_command': f'python scripts/validate_state.py --project-dir {project_arg} --for-step 10 --chapter {chapter_no}',
+            'next_step_after_success': '10',
+        }
+    if canonical_step == 'writing':
+        draft_output = xushikj_dir / 'drafts' / f'chapter_{chapter_no}_output.md'
+        return {
+            'save_target': str(draft_output),
+            'landing_command': f'python scripts/landing.py writing --project-dir {project_arg} --chapter {chapter_no} --input-file {shlex.quote(str(draft_output))}',
+            'validation_command': f'python scripts/validate_state.py --project-dir {project_arg} --for-step 10 --chapter {chapter_no}',
+            'next_step_after_success': 'humanizer',
+        }
+    humanizer_chapter_path, _ = _resolve_humanizer_chapter(project_root, xushikj_dir, chapter, chapter_file)
+    draft_output = xushikj_dir / 'drafts' / f'{humanizer_chapter_path.stem}_humanizer_output.md'
+    validate_cmd = (
+        f'python scripts/validate_state.py --project-dir {project_arg} --for-step humanizer --chapter-file {shlex.quote(str(humanizer_chapter_path))}'
+        if chapter_file is not None
+        else f'python scripts/validate_state.py --project-dir {project_arg} --for-step humanizer --chapter {chapter_no}'
+    )
+    landing_cmd = (
+        f'python scripts/landing.py humanizer --project-dir {project_arg} --chapter-file {shlex.quote(str(humanizer_chapter_path))} --input-file {shlex.quote(str(draft_output))}'
+        if chapter_file is not None
+        else f'python scripts/landing.py humanizer --project-dir {project_arg} --chapter {chapter_no} --input-file {shlex.quote(str(draft_output))}'
+    )
+    return {
+        'save_target': str(draft_output),
+        'landing_command': landing_cmd,
+        'validation_command': validate_cmd,
+        'next_step_after_success': '（可结束当前章节流程）',
+    }
+
+
+def _prompt_handoff_notes(step: str) -> list[str]:
+    canonical_step = _canonical_step(step)
+    notes = [
+        '将下方 `## 已组装 Prompt` 原文完整交给外部模型，不要删改规则段落。',
+        '要求外部模型只返回步骤结果本身，不要解释 Prompt 组装过程或额外寒暄。',
+        '外部模型返回后，先人工检查，再按“结果回填”写入项目文件。',
+    ]
+    if canonical_step in {'writing', 'humanizer'}:
+        notes.append('writing / humanizer 结果应先保存为 Markdown 文件，再执行落盘命令。')
+    return notes
+
+
+def _render_prompt_package_markdown(package: dict[str, Any]) -> str:
+    sections = [
+        '# Prompt Package',
+        '',
+        f"- 模式：{package['mode']}",
+        f"- 步骤：{package['step']}",
+        f"- 标题：{package['title']}",
+        '',
+        '## 当前步骤目标',
+        package['objective'],
+        '',
+        '## 输入上下文摘要',
+        '\n'.join(f'- {line}' for line in package['input_context']),
+        '',
+        '## 推荐投喂方式',
+        '\n'.join(f'{number}. {line}' for number, line in enumerate(package['handoff_notes'], start=1)),
+        '',
+        '## 预期输出结构',
+        '\n'.join(f'- {line}' for line in package['expected_output_schema']),
+        '',
+        '## 结果回填',
+        f"- 保存目标：{package['result_write_back']['save_target']}",
+        f"- 落盘命令：{package['result_write_back']['landing_command']}",
+        f"- 验证命令：{package['result_write_back']['validation_command']}",
+        f"- 成功后建议步骤：{package['result_write_back']['next_step_after_success']}",
+        '',
+        '## 已组装 Prompt',
+        package['assembled_prompt'].strip(),
+        '',
+    ]
+    return '\n'.join(sections)
+
+
+def build_prompt_package(project_dir: Path, step: str, chapter: int | None, chapter_file: Path | None = None) -> dict[str, Any]:
+    project_root, xushikj_dir = _resolve_paths(project_dir)
+    raw_prompt = assemble(project_dir, step, chapter, chapter_file)
+    state = _load_state(xushikj_dir) if (xushikj_dir / 'state.json').exists() else None
+    canonical_step = _canonical_step(step)
+    package_info = STEP_PACKAGE_INFO[canonical_step]
+    return {
+        'mode': 'prompt-only',
+        'step': canonical_step,
+        'title': package_info['title'],
+        'objective': package_info['objective'],
+        'input_context': _input_context_summary(project_root, xushikj_dir, state, step, chapter, chapter_file),
+        'handoff_notes': _prompt_handoff_notes(step),
+        'expected_output_schema': package_info['expected_output_schema'],
+        'result_write_back': _result_write_back(project_root, xushikj_dir, step, chapter, chapter_file),
+        'assembled_prompt': raw_prompt,
+    }
+
+
 def assemble(project_dir: Path, step: str, chapter: int | None, chapter_file: Path | None = None) -> str:
     project_root, xushikj_dir = _resolve_paths(project_dir)
     if step == 'status':
@@ -442,6 +692,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--chapter-file', type=Path, help='Optional standalone chapter file for humanizer')
     parser.add_argument('--output', choices=['stdout', 'file'], default='stdout')
     parser.add_argument('--output-file', type=Path)
+    parser.add_argument('--format', choices=['markdown', 'json'], default='markdown', help='Prompt package output format')
+    parser.add_argument('--raw-prompt', action='store_true', help='Output only the assembled prompt without the prompt package wrapper')
     parser.add_argument('--status', action='store_true', help='Show Lite project status')
     parser.add_argument('--writing-mode', help='Reserved for compatibility; Lite currently uses style-clone only')
     return parser
@@ -453,7 +705,15 @@ def main() -> int:
     step = 'status' if args.status else args.step
     if not step:
         raise SystemExit('--step or --status is required')
-    result = assemble(args.project_dir, step, args.chapter, args.chapter_file)
+    if step == 'status' or args.raw_prompt:
+        result = assemble(args.project_dir, step, args.chapter, args.chapter_file)
+    else:
+        package = build_prompt_package(args.project_dir, step, args.chapter, args.chapter_file)
+        result = (
+            json.dumps(package, ensure_ascii=False, indent=2)
+            if args.format == 'json'
+            else _render_prompt_package_markdown(package)
+        )
     if args.output == 'file':
         if not args.output_file:
             raise SystemExit('--output file requires --output-file')
