@@ -497,6 +497,8 @@ def _result_write_back(
     canonical_step = _canonical_step(step)
     state = _load_state(xushikj_dir) if (xushikj_dir / 'state.json').exists() else {}
     chapter_no = chapter or int(state.get('current_chapter', 1))
+    # These command strings are meant to be copied into a shell, so every filesystem path
+    # that appears inside an executable command must be shell-quoted defensively.
     project_arg = shlex.quote(str(project_root))
     if canonical_step == 'benchmark-lite':
         return {
@@ -581,7 +583,7 @@ def _render_prompt_package_markdown(package: dict[str, Any]) -> str:
         '\n'.join(f'- {line}' for line in package['input_context']),
         '',
         '## 推荐投喂方式',
-        '\n'.join(f'{index}. {line}' for index, line in enumerate(package['handoff_notes'], start=1)),
+        '\n'.join(f'{number}. {line}' for number, line in enumerate(package['handoff_notes'], start=1)),
         '',
         '## 预期输出结构',
         '\n'.join(f'- {line}' for line in package['expected_output_schema']),
